@@ -29,73 +29,58 @@ Result: **30 skills installed** under `.agents/skills/` (gitignored). Relevant s
 
 ## Branch
 
-- Prior: `feat/ashiha/compact-bootstrap` (createCapability openings) — this work depends on it until merged to `main`.
-- Active branch: `feat/ashiha/authorize-spend`
+- Prior: `feat/ashiha/authorize-spend` — this work depends on it until merged to `main`.
+- Active branch: `feat/ashiha/revoke-capability`
 - Ownership: `contract/**`, `docs/CORE_STATUS.md`
 - Did **not** edit `web/**`.
 
-## Deliverable — authorizeSpend
+## Deliverable — revokeCapability
 
 | Path | Role |
 | --- | --- |
-| `contract/src/moat.compact` | `createCapability` + `authorizeSpend` |
-| `contract/src/witnesses.ts` | Policy, spend-state, and request openings |
+| `contract/src/moat.compact` | `createCapability` + `authorizeSpend` + `revokeCapability` |
 
-### `authorizeSpend` behaviour
+### `revokeCapability` behaviour
 
-Public circuit arg: `capabilityId`.
+Public circuit arg: `capabilityId` (private until disclosed; same model as authorizeSpend).
 
-Private witnesses (additional): `agentSecret`, `amount`, `requestCategoryHash`, `requestNonce`, `oneTimeDestinationHash`, `newStateSalt`.
+Checks (generic `"revocation rejected"` messages):
 
-Checks (all observer assert messages are generic `"authorization rejected"`):
+- capability exists and is not already revoked
+- `hashOwner(ownerSecret)` opens stored `ownerCommitment`
+- `hashCapabilityId(ownerSecret, policySalt)` matches the capability ID
 
-- capability exists and is not revoked
-- derived ID from owner openings matches the public arg
-- `hashAgentKey(agentSecret) == agentKeyHash` (agent bound into policy)
-- policy / current spend-state openings match ledger commitments
-- `amount > 0`, `amount <= perTxLimit`, `spentSoFar + amount <= totalBudget`
-- request category equals allowed category
-- `useCount < maxUses`
-- nullifier unused
+On success: overwrite ledger entry with `revoked=true` (policy/spend/owner commitments unchanged).
 
-Domain hashes: `MOAT_REQUEST_V1`, `MOAT_NULLIFIER_V1`, `MOAT_RECEIPT_V1`, plus `MOAT_AGENT_KEY_V1` for agent binding.
+`authorizeSpend` already rejects revoked capabilities via `assert(!record.revoked, ...)`.
 
-On success:
-
-- insert disclosed nullifier into `usedNullifiers`
-- insert disclosed receipt into `verifiedReceipts`
-- update capability `spendStateCommitment` to the new state (`spent+amount`, `useCount+1`, `newStateSalt`)
-
-### Compile evidence (authorizeSpend)
+### Compile evidence (revokeCapability)
 
 ```bash
 cd "$(git rev-parse --show-toplevel)/contract"
-# Midnight Compact on PATH (WSL on Windows hosts)
 compact compile src/moat.compact src/managed/moat
 npm run typecheck --workspace @latch/contract
 ```
 
-Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain **0.31.1**). Typecheck pass.
+Result: **exit 0** — circuits `createCapability`, `authorizeSpend`, `revokeCapability` (toolchain **0.31.1**).
 
-### CodeRabbit follow-ups (same branch)
+### Review follow-ups (PR #16)
 
-- `typecheck` / `test` run `ensure-managed` first so a clean clone generates `src/managed` before resolving imports.
-- `maxUses` / `useCount` are `bigint` to match Compact `Uint<32>` runtime encodings.
-- Exported `advanceSpendStateAfterAuthorization` updates local openings after a successful spend (`spentSoFar + amount`, `useCount + 1`, `stateSalt = newStateSalt`).
-- Unit tests cover private-state defaults, first/second spend transitions, and budget/maxUses guards. Full Compact circuit simulator tests remain deferred.
-- Greptile follow-up: documented that Compact `Map.insert` overwrites (authorizeSpend update path); added `maxUses * perTxLimit <= budget` at createCapability; clarified `capabilityId` disclosure privacy model.
+- `ensure-managed` regenerates bindings when `moat.compact` is newer than managed output (not only when missing).
+- Removed `maxUses * perTxLimit <= budget` from `createCapability` (valid policies may exhaust budget before maxUses).
+- `authorizeSpend` preserves `record.revoked` on spend-state updates.
+- Witness tests import `./witnesses.js` and cover revoke openings (`ownerSecret` / `policySalt`).
 
 ## Not done yet (next pieces, one-by-one)
 
-1. `revokeCapability`
-2. `api/**` TypeScript client + mock client + stealth module
-3. `docker-compose.yml` / proof-server wiring
-4. Full Compact circuit transition tests (simulator / proof path)
+1. `api/**` TypeScript client + mock client + stealth module
+2. `docker-compose.yml` / proof-server wiring
+3. Full Compact circuit transition tests (simulator / proof path)
 
 ## Blockers
 
-- None for compile/typecheck of `authorizeSpend`.
-- Branch depends on unmerged `feat/ashiha/compact-bootstrap` base until that PR lands on `main`.
+- None for compile/typecheck of `revokeCapability`.
+- Branch depends on unmerged `feat/ashiha/authorize-spend` (and its predecessors) until those land on `main`.
 - Real deploy / Preprod still blocked on funded wallet + proof server.
 - Atharv frontend lives on unmerged feature branches; this branch only adds `contract/**`.
 
@@ -104,5 +89,5 @@ Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain
 - Install Compact inside WSL, then `compact update 0.31.1`.
 - From repo root: `cd "$(git rev-parse --show-toplevel)/contract"` then compile, or use `npm run compact` / `npm run build --workspace @latch/contract`.
 - Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` (or full `build`) after clone so `dist/managed` is present.
-- Public authorize surface today: capability id arg + nullifier/receipt ledger sets + updated spend-state commitment. Request commitment is bound inside the receipt hash (not a separate ledger field yet).
+- Circuits available: `createCapability`, `authorizeSpend`, `revokeCapability`.
 - After a successful `authorizeSpend` transaction, call `advanceSpendStateAfterAuthorization(privateState)` before the next spend so local openings match the new ledger spend-state commitment.

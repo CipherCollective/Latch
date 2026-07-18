@@ -4,7 +4,7 @@ import {
   advanceSpendStateAfterAuthorization,
   createMoatPrivateState,
   witnesses,
-} from '../src/witnesses.js';
+} from './witnesses.js';
 
 const bytes = (label: string): Uint8Array => new TextEncoder().encode(label.padEnd(32, '\0')).slice(0, 32);
 
@@ -82,5 +82,16 @@ describe('MoatPrivateState', () => {
     expect(maxUses).toBe(3n);
     expect(useCount).toBe(0n);
     expect(nextState).toBe(state);
+  });
+
+  it('exposes ownerSecret and policySalt openings used by revokeCapability', () => {
+    const state = baseState();
+    const context = { privateState: state } as never;
+    const [afterOwner, ownerSecret] = witnesses.ownerSecret(context);
+    const [afterSalt, policySalt] = witnesses.policySalt(context);
+    expect(ownerSecret).toEqual(bytes('owner'));
+    expect(policySalt).toEqual(bytes('policy-salt'));
+    expect(afterOwner).toBe(state);
+    expect(afterSalt).toBe(state);
   });
 });
