@@ -8,6 +8,7 @@ on:
       - "fix/atharv/**"
       - "ci/atharv/**"
       - "deploy/atharv/**"
+      - "release/atharv/**"
 
 permissions:
   contents: read

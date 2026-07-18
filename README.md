@@ -127,12 +127,16 @@ No Ashiha/core package or Compact handoff is present on this branch. Therefore t
 ```bash
 git clone https://github.com/CipherCollective/Latch.git
 cd Latch
-git switch feat/atharv/docs
+git switch release/atharv/integration # Remove this line after the integration PR is merged.
 npm ci
 npm run dev
 ```
 
-The explicit branch switch is required until the final integration PR reaches the default branch; after that merge, a plain default-branch clone is sufficient. Open the local URL printed by Vite (normally `http://localhost:5173`). Choose **Use deterministic demo**. No environment variable is needed for this path.
+The branch switch is required while `main` still lacks the final integration.
+After a human merges that PR, omit it and use the default-branch clone as the
+release path. Open the local URL printed by Vite (normally
+`http://localhost:5173`). Choose **Use deterministic demo**. No environment
+variable is needed for this path.
 
 ### Public deployment status
 
@@ -188,7 +192,7 @@ Demo artifacts use `networkId: "demo"` and `tx.kind: "demo-fixture"`. They never
 - **Frontend controls are not contract guarantees.** Replay, budget, category, use-count, and revocation invariants are thoroughly tested in `MockMoatClient`; real enforcement remains `[CORE FACT REQUIRED]`.
 - **No secrets belong in frontend configuration.** Any future `VITE_*` value is public at build time. Never place a seed, signing key, witness, private policy, wallet credential, or API secret there.
 
-See [Architecture](docs/ARCHITECTURE.md), the [build specification](docs/LATCH_ATHARV_BUILD_SPEC.md), the [deployment record](docs/DEPLOYMENT.md), and the append-only [build log](docs/BUILD_LOG.md) for the detailed trust boundaries and evidence record.
+See [Architecture](docs/ARCHITECTURE.md), the [build specification](docs/LATCH_ATHARV_BUILD_SPEC.md), the [deployment record](docs/DEPLOYMENT.md), the [release handoff](docs/RELEASE_HANDOFF.md), and the append-only [build log](docs/BUILD_LOG.md) for the detailed trust boundaries and evidence record.
 
 ## Fresh work and locked dependencies
 

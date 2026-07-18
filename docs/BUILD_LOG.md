@@ -161,3 +161,13 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Scope:** Wallet focus-revalidation lifecycle, two regression assertions, and generated release artifact only; no dependency, `api/**`, or `contract/**` change.
 - **PR handoff:** Pending final evidence verification; the resulting URL will be appended without rewriting this event.
 - **PR URL appended after verification:** [#12 - `[STACK 12] Stabilize wallet focus revalidation`](https://github.com/CipherCollective/Latch/pull/12), targeting `fix/atharv/node-runtime`; no self-merge.
+
+## 2026-07-18 - Final Atharv/Codex integration handoff
+
+- **Branch:** `release/atharv/integration` from verified stack tip `bd02c301bcbffcca431c2f5ecc6e3a6b95bb4178`.
+- **Target:** `main`; the aggregate pull request is required because earlier stacked merges into already-merged feature branches did not propagate the runnable application back to the default branch.
+- **Scope:** Main-ready quick start, aggregate review/merge runbook, release-branch CI trigger, complete feature/PR ledger, exact verification evidence, and explicit external handoffs. No application behavior, dependency, `api/**`, or `contract/**` change is introduced by this integration-only commit.
+- **Process:** PRs #2 and #7 remain recorded author-merge exceptions. The final integration PR requires a non-author human review and merge; no self-merge will be performed by this workstream.
+- **Open external facts:** Ashiha core evidence remains `[CORE FACT REQUIRED]`; public hosting remains blocked by the private-repository GitHub Pages plan and `[DEPLOYMENT FACT REQUIRED]`; video, Devpost, approvals, merge, and submission remain `[SUBMISSION FACT REQUIRED]`.
+- **Validation:** Pending a clean remote clone of the integration commit and the complete exact-Node release matrix; results will be appended before the PR is opened.
+- **PR handoff:** Pending clean-clone verification; the resulting URL will be appended without rewriting this event.
