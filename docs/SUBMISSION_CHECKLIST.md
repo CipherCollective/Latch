@@ -44,7 +44,7 @@ evidence.
 | 10 | `deploy/atharv/public-demo` | [#10](https://github.com/CipherCollective/Latch/pull/10) | Open — human review required; public host blocked |
 | 11 | `fix/atharv/node-runtime` | [#11](https://github.com/CipherCollective/Latch/pull/11) | Open — human review required; clean-clone runtime correction |
 | 12 | `fix/atharv/wallet-focus-stability` | [#12](https://github.com/CipherCollective/Latch/pull/12) | Open — human review required; focus revalidation race correction |
-| 13 | `release/atharv/integration` | [PULL REQUEST PENDING] | Open from the final stack tip to `main`; human merge required |
+| 13 | `release/atharv/integration` | [#13](https://github.com/CipherCollective/Latch/pull/13) | Open against `main`; non-author human review and merge required |
 
 ## Automated verification
 

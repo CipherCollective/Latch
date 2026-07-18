@@ -86,7 +86,7 @@ an instruction to represent open reviews as approved.
 | 10 | [Verified deployment bundle](https://github.com/CipherCollective/Latch/pull/10) | Open; human review required; public host blocked |
 | 11 | [Runtime and artifact reproducibility](https://github.com/CipherCollective/Latch/pull/11) | Open; human review required |
 | 12 | [Wallet focus revalidation stability](https://github.com/CipherCollective/Latch/pull/12) | Open; human review required |
-| 13 | Final integration | `[PULL REQUEST PENDING]` |
+| 13 | [Final integration](https://github.com/CipherCollective/Latch/pull/13) | Open; non-author human review and merge required |
 
 PRs #2 and #7 are known no-self-merge process exceptions. They must not be
 described as compliant. The final integration PR must be reviewed and merged by
