@@ -1,6 +1,5 @@
-// Latch / MOAT — createCapability + authorizeSpend
-// revokeCapability lands in a follow-up branch.
-// Depends on: feat/ashiha/compact-bootstrap (createCapability openings).
+// Latch / MOAT — createCapability + authorizeSpend + revokeCapability
+// Depends on: feat/ashiha/authorize-spend (and compact-bootstrap before that).
 
 pragma language_version >= 0.22;
 
@@ -280,6 +279,36 @@ export circuit authorizeSpend(capabilityId: Bytes<32>): [] {
       spendStateCommitment: disclose(newSpendStateCommitment),
       ownerCommitment: record.ownerCommitment,
       revoked: false
+    }
+  );
+}
+
+/**
+ * Revoke a capability. Requires ownerSecret that opens the stored ownerCommitment
+ * (and policySalt so the derived capability ID matches). Revoked capabilities fail
+ * authorizeSpend via the revoked flag check.
+ */
+export circuit revokeCapability(capabilityId: Bytes<32>): [] {
+  // Same privacy model as authorizeSpend: arg is private until disclosed.
+  const publicCapabilityId = disclose(capabilityId);
+  assert(capabilities.member(publicCapabilityId), "revocation rejected");
+
+  const record = capabilities.lookup(publicCapabilityId);
+  assert(!record.revoked, "revocation rejected");
+
+  const secret = ownerSecret();
+  const salt = policySalt();
+  assert(hashOwner(secret) == record.ownerCommitment, "revocation rejected");
+  assert(hashCapabilityId(secret, salt) == capabilityId, "revocation rejected");
+
+  // Overwrite existing entry; Compact Map.insert updates in place.
+  capabilities.insert(
+    publicCapabilityId,
+    CapabilityPublic {
+      policyCommitment: record.policyCommitment,
+      spendStateCommitment: record.spendStateCommitment,
+      ownerCommitment: record.ownerCommitment,
+      revoked: true
     }
   );
 }
