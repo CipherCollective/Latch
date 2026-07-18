@@ -164,6 +164,8 @@ export circuit createCapability(
   assert(spent == 0 as Uint<64>, "non-zero spend state");
   assert(used == 0 as Uint<32>, "non-zero use count");
   assert(perTxLimit <= budget, "limit exceeds budget");
+  // Fully exercising maxUses at the per-tx ceiling must still fit the budget.
+  assert((uses as Uint<64>) * perTxLimit <= budget, "uses exceed budget");
 
   const capabilityId = hashCapabilityId(secret, salt);
   const ownerCommitment = hashOwner(secret);
@@ -199,6 +201,11 @@ export circuit createCapability(
 /**
  * Authorize one spend against a registered capability.
  * Observer-facing assert copy is intentionally generic (failure privacy).
+ *
+ * Privacy model for `capabilityId`: circuit arguments are private witness-like
+ * inputs until disclosed. Callers prove knowledge of openings that derive this
+ * ID; `disclose(capabilityId)` is what becomes the public ledger key. Do not
+ * treat the undisclosed parameter as already-public chain data.
  */
 export circuit authorizeSpend(capabilityId: Bytes<32>): [] {
   const publicCapabilityId = disclose(capabilityId);
@@ -264,6 +271,8 @@ export circuit authorizeSpend(capabilityId: Bytes<32>): [] {
 
   usedNullifiers.insert(publicNullifier);
   verifiedReceipts.insert(disclose(receiptCommitment));
+  // Compact Map.insert creates or overwrites (official update path). This is not
+  // the createCapability uniqueness insert; the key was asserted present above.
   capabilities.insert(
     publicCapabilityId,
     CapabilityPublic {

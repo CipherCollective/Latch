@@ -83,6 +83,7 @@ Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain
 - `maxUses` / `useCount` are `bigint` to match Compact `Uint<32>` runtime encodings.
 - Exported `advanceSpendStateAfterAuthorization` updates local openings after a successful spend (`spentSoFar + amount`, `useCount + 1`, `stateSalt = newStateSalt`).
 - Unit tests cover private-state defaults, first/second spend transitions, and budget/maxUses guards. Full Compact circuit simulator tests remain deferred.
+- Greptile follow-up: documented that Compact `Map.insert` overwrites (authorizeSpend update path); added `maxUses * perTxLimit <= budget` at createCapability; clarified `capabilityId` disclosure privacy model.
 
 ## Not done yet (next pieces, one-by-one)
 

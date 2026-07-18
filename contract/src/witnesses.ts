@@ -42,6 +42,9 @@ export const createMoatPrivateState = (
  * After a successful `authorizeSpend`, advance local openings so they reopen the
  * new on-ledger spend-state commitment. Witness callbacks only supply openings
  * during the circuit; callers must apply this transition once the tx succeeds.
+ *
+ * Before the next spend, also set a fresh `amount`, `requestNonce`,
+ * `oneTimeDestinationHash`, and `newStateSalt` on the returned state.
  */
 export const advanceSpendStateAfterAuthorization = (state: MoatPrivateState): MoatPrivateState => {
   if (state.amount <= 0n) {
