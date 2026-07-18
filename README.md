@@ -117,7 +117,8 @@ No Ashiha/core package or Compact handoff is present on this branch. Therefore t
 ### Prerequisites
 
 - Git.
-- Node.js `22.12.0` or newer within the supported `22.x` release line. The workspace engine is pinned to `22.x`.
+- Node.js `22.13.0` or newer within the supported `22.x` release line. The
+  workspace engine rejects Node 23+, and `.nvmrc` pins the verified minimum.
 - npm with lockfile-v3 support. npm ships with supported Node releases.
 - A modern browser with Web Crypto. No wallet, backend, account, environment file, or external service is required for Demo mode.
 

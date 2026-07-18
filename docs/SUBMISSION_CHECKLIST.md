@@ -20,7 +20,7 @@ evidence.
 - [x] No work was pushed directly to `main` or `master`.
 - [x] `contract/**` was not edited by the Atharv/Codex workstream.
 - [x] No competing `api/**` implementation was created.
-- [x] Completed feature work through stack 10 is split into stacked review
+- [x] Completed feature work through stack 11 is split into stacked review
   branches and pull requests.
 - [ ] Every merge satisfied the no-self-merge rule. PRs #2 and #7 were merged
   by their author, Atharv; both process exceptions are recorded and must not be
@@ -42,11 +42,13 @@ evidence.
 | 8 | `ci/atharv/release-gates` | [#8](https://github.com/CipherCollective/Latch/pull/8) | Open — human review required; CI passing |
 | 9 | `feat/atharv/docs` | [#9](https://github.com/CipherCollective/Latch/pull/9) | Open — human review required |
 | 10 | `deploy/atharv/public-demo` | [#10](https://github.com/CipherCollective/Latch/pull/10) | Open — human review required; public host blocked |
-| 11 | `release/atharv/integration` | [DEPLOYMENT FACT REQUIRED] | Open from the final stack tip to `main`; human merge required |
+| 11 | `fix/atharv/node-runtime` | [#11](https://github.com/CipherCollective/Latch/pull/11) | Open — human review required; clean-clone runtime correction |
+| 12 | `release/atharv/integration` | [PULL REQUEST PENDING] | Open from the final stack tip to `main`; human merge required |
 
 ## Automated verification
 
-Run from a clean checkout with Node.js 22.12.0 or newer in the supported 22.x release line:
+Run from a clean checkout with Node.js `22.13.0` or newer in the supported
+`22.x` release line:
 
 ```bash
 npm ci
@@ -57,15 +59,15 @@ npm audit --audit-level=low
 git diff --check
 ```
 
-- [ ] `npm ci` succeeds using the committed lockfile.
-- [ ] TypeScript reports no errors.
-- [ ] Every Vitest file and test passes.
-- [ ] Vite produces `web/dist/index.html` and hashed assets.
-- [ ] The dependency audit reports no known vulnerabilities.
-- [ ] The verified checkout remains clean after checks.
-- [ ] Axe reports no WCAG A/AA violations on all release-critical states.
-- [ ] Browser automation reports no application console errors.
-- [ ] Browser automation reports no horizontal overflow at 320px.
+- [x] `npm ci` succeeds using the committed lockfile.
+- [x] TypeScript reports no errors.
+- [x] Every Vitest file and test passes.
+- [x] Vite produces `web/dist/index.html` and hashed assets.
+- [x] The dependency audit reports no known vulnerabilities.
+- [x] The verified checkout remains clean after checks.
+- [x] Axe reports no WCAG A/AA violations on all release-critical states.
+- [x] Browser automation reports no application console errors.
+- [x] Browser automation reports no horizontal overflow at 320px.
 
 Record final command output and commit identifiers in
 [`BUILD_LOG.md`](./BUILD_LOG.md); do not paste credentials, wallet payloads, or
@@ -76,49 +78,49 @@ private policy data.
 Start with a clean refresh and verify the `Demo mode` badge remains visible on
 every workflow screen.
 
-- [ ] The default policy shows limit `20`, budget `50`, uses `3`, and category
+- [x] The default policy shows limit `20`, budget `50`, uses `3`, and category
   `developer-tools`.
-- [ ] Capability creation is labeled as a deterministic fixture.
-- [ ] CodeShield requests `12` and approves.
-- [ ] Uses change from `3` to `2` and remaining budget changes from `50` to
+- [x] Capability creation is labeled as a deterministic fixture.
+- [x] CodeShield requests `12` and approves.
+- [x] Uses change from `3` to `2` and remaining budget changes from `50` to
   `38` exactly.
-- [ ] The receipt and destination are explicitly labeled as fixtures.
-- [ ] Fixture receipt verification passes.
-- [ ] AlphaSignal requests `30` in `trading-data` and rejects.
-- [ ] Rejection leaves budget, uses, receipts, and nullifiers unchanged.
-- [ ] Replaying CodeShield produces no second receipt and no state mutation.
-- [ ] Public Observer shows the same generic message for policy rejection and
+- [x] The receipt and destination are explicitly labeled as fixtures.
+- [x] Fixture receipt verification passes.
+- [x] AlphaSignal requests `30` in `trading-data` and rejects.
+- [x] Rejection leaves budget, uses, receipts, and nullifiers unchanged.
+- [x] Replaying CodeShield produces no second receipt and no state mutation.
+- [x] Public Observer shows the same generic message for policy rejection and
   replay rejection.
-- [ ] Public Observer DOM and copied JSON contain no owner policy, request,
+- [x] Public Observer DOM and copied JSON contain no owner policy, request,
   merchant, destination, private reason, wallet, or witness values.
-- [ ] Revocation requires confirmation and blocks later authorization.
-- [ ] Reset and clean refresh restore the deterministic initial state.
+- [x] Revocation requires confirmation and blocks later authorization.
+- [x] Reset and clean refresh restore the deterministic initial state.
 
 ## Wallet boundary smoke test
 
-- [ ] No-wallet state makes no connection claim and preserves Demo access.
-- [ ] An incompatible connector cannot be selected.
-- [ ] Multiple compatible connectors require an explicit radio selection.
-- [ ] A pending wallet request keeps stable layout and remains cancellable via
+- [x] No-wallet state makes no connection claim and preserves Demo access.
+- [x] An incompatible connector cannot be selected.
+- [x] Multiple compatible connectors require an explicit radio selection.
+- [x] A pending wallet request keeps stable layout and remains cancellable via
   Back or Demo.
-- [ ] Declined, inaccessible, wrong-network, and stale-session states use fixed
+- [x] Declined, inaccessible, wrong-network, and stale-session states use fixed
   public copy with retry paths.
-- [ ] `Preprod · Wallet connected` appears only after status, configuration,
+- [x] `Preprod · Wallet connected` appears only after status, configuration,
   and post-configuration status agree.
-- [ ] Returning focus after a disconnect/network switch clears the connected
+- [x] Returning focus after a disconnect/network switch clears the connected
   badge.
-- [ ] No address, balance, key, history, signing, transfer, or transaction
+- [x] No address, balance, key, history, signing, transfer, or transaction
   permission is requested.
-- [ ] Wallet configuration, endpoints, raw reasons, and provider objects never
+- [x] Wallet configuration, endpoints, raw reasons, and provider objects never
   appear in DOM, clipboard, storage, or logs.
-- [ ] No real capability or transaction action is exposed without the verified
+- [x] No real capability or transaction action is exposed without the verified
   core factory.
 
 ## Public deployment gate
 
 - [x] Deployment is built from the documented stack tip.
 - [x] No environment variables or secrets are required for Demo mode.
-- [x] The exact committed artifact is reproducible under Node.js `22.12.0`.
+- [x] The exact committed artifact is reproducible under Node.js `22.13.0`.
 - [x] The generated static assets load with no `404` responses when hosted at
   the production `/Latch/` base path locally.
 - [x] Create, approve, verify, reject, replay, observer, revoke, and reset pass
