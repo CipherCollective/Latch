@@ -133,6 +133,16 @@ npm run dev
 
 The explicit branch switch is required until the final integration PR reaches the default branch; after that merge, a plain default-branch clone is sufficient. Open the local URL printed by Vite (normally `http://localhost:5173`). Choose **Use deterministic demo**. No environment variable is needed for this path.
 
+### Public deployment status
+
+The production-base static bundle is committed under `docs/` and has passed the
+full local hosted-artifact browser matrix. No live URL is claimed: GitHub's
+Pages API returned HTTP `422` because the current plan does not support Pages
+for this private organization repository, and no authorized alternative-host
+credential is available. See the [deployment record](docs/DEPLOYMENT.md) for
+artifact hashes, reproduction commands, smoke-test results, and the exact
+unblock options.
+
 ### Verify the workspace
 
 ```bash
@@ -177,7 +187,7 @@ Demo artifacts use `networkId: "demo"` and `tx.kind: "demo-fixture"`. They never
 - **Frontend controls are not contract guarantees.** Replay, budget, category, use-count, and revocation invariants are thoroughly tested in `MockMoatClient`; real enforcement remains `[CORE FACT REQUIRED]`.
 - **No secrets belong in frontend configuration.** Any future `VITE_*` value is public at build time. Never place a seed, signing key, witness, private policy, wallet credential, or API secret there.
 
-See [Architecture](docs/ARCHITECTURE.md), the [build specification](docs/LATCH_ATHARV_BUILD_SPEC.md), and the append-only [build log](docs/BUILD_LOG.md) for the detailed trust boundaries and evidence record.
+See [Architecture](docs/ARCHITECTURE.md), the [build specification](docs/LATCH_ATHARV_BUILD_SPEC.md), the [deployment record](docs/DEPLOYMENT.md), and the append-only [build log](docs/BUILD_LOG.md) for the detailed trust boundaries and evidence record.
 
 ## Fresh work and locked dependencies
 
