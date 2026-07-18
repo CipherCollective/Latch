@@ -149,3 +149,14 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Manifest correction:** The original notice digest was measured from the pre-index CRLF working copy. The deployment manifest now records the clean remote bytes: 18,074 bytes and SHA-256 `9bb1763e0847029c4cbdbc9d01e13596456cb6eacbfe96f90b654acb9031a89f`.
 - **PR handoff:** Pending exact-runtime verification; the resulting URL will be appended without rewriting this event.
 - **PR URL appended after verification:** [#11 - `[STACK 11] Align Node runtime and reproducible artifacts`](https://github.com/CipherCollective/Latch/pull/11), targeting `deploy/atharv/public-demo`; no self-merge.
+
+## 2026-07-18 - Wallet focus revalidation stability
+
+- **Branch:** `fix/atharv/wallet-focus-stability` from runtime stack tip `78977cb87500a0e2167821fa0c32e9e1e6ebee93`.
+- **Trigger:** Duplicate push and pull-request workflows for PRs #9 and #10 ran the same respective commit concurrently; one run passed while the other intermittently missed the post-focus wallet downgrade. Failures appeared in both the app-level and isolated wallet-panel tests.
+- **Root cause:** The connected heading was committed before the passive effect installed `window.focus` and `visibilitychange` listeners. A test or user focus event could therefore observe the connected UI and fire before the listener existed. Callback identity changes also caused unnecessary subscription churn and could discard an in-flight validation result.
+- **Correction:** Install the revalidation subscription in a layout effect, keep the latest connection callbacks in layout-synchronized refs, remove callback identities from the subscription dependencies, and make both regression tests prove the revalidation call occurred before asserting downgrade copy.
+- **Clean-clone validation:** Exact Node.js `22.13.0` lockfile install emitted no engine warning. Twenty consecutive focused two-file repetitions passed, followed by a fresh full run of 130 tests in 17 files, typecheck, production build, zero-vulnerability audit, full dependency-tree validation, Markdownlint, diff check, and clean-tree check at `53a8a58eb70becb6fc3cc3b72d39a874dc01ec82`.
+- **Artifact refresh:** Production-base output was regenerated at `65a9195cd2e1f514515c3c0480603c45c05ca7c7`. The stale JavaScript chunk was removed, the manifest was updated, and the exact artifact passed the full browser lifecycle again with zero console errors, failed requests, HTTP error responses, Axe A/AA violations, or narrow overflow; third-party notices returned `200`.
+- **Scope:** Wallet focus-revalidation lifecycle, two regression assertions, and generated release artifact only; no dependency, `api/**`, or `contract/**` change.
+- **PR handoff:** Pending final evidence verification; the resulting URL will be appended without rewriting this event.
