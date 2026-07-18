@@ -2,10 +2,16 @@
   "name": "latch",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "workspaces": [
+    "contract",
     "web"
   ],
   "scripts": {
+    "compact": "npm run compact --workspace @latch/contract",
+    "build:contract": "npm run build --workspace @latch/contract",
+    "typecheck:contract": "npm run typecheck --workspace @latch/contract",
+    "test:contract": "npm run test --workspace @latch/contract",
     "dev": "npm run dev --workspace @latch/web",
     "build": "npm run build --workspace @latch/web",
     "build:pages": "npm run build:pages --workspace @latch/web",
