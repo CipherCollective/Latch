@@ -1,15 +1,35 @@
+# Dependencies
 node_modules/
-dist/
-coverage/
+.yarn/
+.pnp.*
+
+# Compact / build outputs
+contract/src/managed/
+contract/dist/
+**/dist/
+**/coverage/
 playwright-report/
 test-results/
+*.local
+*.tsbuildinfo
+
+# Local tooling / skills (installed per machine)
+.agents/
+.cursor/
+skills-lock.json
+
+# Env and secrets
 .env
 .env.*
 !.env.example
-*.local
-*.tsbuildinfo
-.DS_Store
+*.pem
 
-# Agent guidance is installed locally by each contributor.
-.agents/
-skills-lock.json
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Leftover workspace checkout artifacts from other branches
+# (tracked sources live on their feature branches)
