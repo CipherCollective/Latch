@@ -77,12 +77,19 @@ npm run typecheck --workspace @latch/contract
 
 Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain **0.31.1**). Typecheck pass.
 
+### CodeRabbit follow-ups (same branch)
+
+- `typecheck` / `test` run `ensure-managed` first so a clean clone generates `src/managed` before resolving imports.
+- `maxUses` / `useCount` are `bigint` to match Compact `Uint<32>` runtime encodings.
+- Exported `advanceSpendStateAfterAuthorization` updates local openings after a successful spend (`spentSoFar + amount`, `useCount + 1`, `stateSalt = newStateSalt`).
+- Unit tests cover private-state defaults, first/second spend transitions, and budget/maxUses guards. Full Compact circuit simulator tests remain deferred.
+
 ## Not done yet (next pieces, one-by-one)
 
 1. `revokeCapability`
 2. `api/**` TypeScript client + mock client + stealth module
 3. `docker-compose.yml` / proof-server wiring
-4. Contract tests from the brief checklist
+4. Full Compact circuit transition tests (simulator / proof path)
 
 ## Blockers
 
@@ -97,3 +104,4 @@ Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain
 - From repo root: `cd "$(git rev-parse --show-toplevel)/contract"` then compile, or use `npm run compact` / `npm run build --workspace @latch/contract`.
 - Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` (or full `build`) after clone so `dist/managed` is present.
 - Public authorize surface today: capability id arg + nullifier/receipt ledger sets + updated spend-state commitment. Request commitment is bound inside the receipt hash (not a separate ledger field yet).
+- After a successful `authorizeSpend` transaction, call `advanceSpendStateAfterAuthorization(privateState)` before the next spend so local openings match the new ledger spend-state commitment.
