@@ -163,8 +163,6 @@ export circuit createCapability(
   assert(spent == 0 as Uint<64>, "non-zero spend state");
   assert(used == 0 as Uint<32>, "non-zero use count");
   assert(perTxLimit <= budget, "limit exceeds budget");
-  // Fully exercising maxUses at the per-tx ceiling must still fit the budget.
-  assert((uses as Uint<64>) * perTxLimit <= budget, "uses exceed budget");
 
   const capabilityId = hashCapabilityId(secret, salt);
   const ownerCommitment = hashOwner(secret);
@@ -278,7 +276,7 @@ export circuit authorizeSpend(capabilityId: Bytes<32>): [] {
       policyCommitment: record.policyCommitment,
       spendStateCommitment: disclose(newSpendStateCommitment),
       ownerCommitment: record.ownerCommitment,
-      revoked: false
+      revoked: record.revoked
     }
   );
 }

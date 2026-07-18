@@ -64,6 +64,13 @@ npm run typecheck --workspace @latch/contract
 
 Result: **exit 0** — circuits `createCapability`, `authorizeSpend`, `revokeCapability` (toolchain **0.31.1**).
 
+### Review follow-ups (PR #16)
+
+- `ensure-managed` regenerates bindings when `moat.compact` is newer than managed output (not only when missing).
+- Removed `maxUses * perTxLimit <= budget` from `createCapability` (valid policies may exhaust budget before maxUses).
+- `authorizeSpend` preserves `record.revoked` on spend-state updates.
+- Witness tests import `./witnesses.js` and cover revoke openings (`ownerSecret` / `policySalt`).
+
 ## Not done yet (next pieces, one-by-one)
 
 1. `api/**` TypeScript client + mock client + stealth module
