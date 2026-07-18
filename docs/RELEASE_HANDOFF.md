@@ -118,6 +118,15 @@ consecutive focused App/WalletConnectionPanel runs passed, followed by the full
 diff, and clean-tree gates. CI repeats the executable gates on the final
 pull-request head.
 
+Remote integration commit `6456ff1e413965b9f1ea16b74ca695a8eb00f701`
+was then checked from a new clone under exact Node.js `22.13.0`. It passed the
+lockfile install without an `EBADENGINE` warning, typecheck, all 130 tests,
+production build, audit, complete dependency tree, Markdownlint, local-link and
+credential-pattern checks, source-map rejection, all six committed artifact
+byte/SHA-256 assertions, core-path scope check, diff check, and clean tracked
+worktree. Subsequent handoff-only commits do not change application or artifact
+bytes; CI reruns the executable gates on every final integration head.
+
 ### Deployment artifact
 
 The `/Latch/` bundle was rebuilt from the focus-corrected source under Node.js
