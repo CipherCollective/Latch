@@ -3,6 +3,7 @@ import * as secp from '@noble/secp256k1';
 
 import { hashCapabilityId, hashOwner, hashPolicy, randomBytes32, toHex32 } from './commitments.js';
 import { MockMoatClient } from './mock-client.js';
+import { endpointsFromEnv, UNDEPLOYED_ENDPOINTS } from './networks.js';
 import { deriveReceiverOneTimePublicKey, generateOneTimeDestination } from './stealth.js';
 
 function keyPair() {
@@ -204,5 +205,16 @@ describe('MockMoatClient', () => {
     snap!.revoked = true;
     const again = await client.getCapability(created.capabilityId);
     expect(again?.revoked).toBe(false);
+  });
+});
+
+describe('networks', () => {
+  it('resolves undeployed endpoints from env', () => {
+    const cfg = endpointsFromEnv({ MIDNIGHT_NETWORK: 'undeployed' });
+    expect(cfg).toMatchObject(UNDEPLOYED_ENDPOINTS);
+  });
+
+  it('defaults to demo when unset', () => {
+    expect(endpointsFromEnv({})).toEqual({ networkId: 'demo' });
   });
 });

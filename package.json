@@ -17,7 +17,12 @@
     "typecheck:api": "npm run prepare:contract && npm run typecheck --workspace @latch/api",
     "test:api": "npm run prepare:contract && npm run test --workspace @latch/api",
     "typecheck": "npm run typecheck:contract && npm run typecheck:api",
-    "test": "npm run test:contract && npm run test:api"
+    "test": "npm run test:contract && npm run test:api",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down",
+    "local:ps": "docker compose ps",
+    "local:logs": "docker compose logs -f",
+    "local:proof": "docker compose up -d proof-server"
   },
   "engines": {
     "node": ">=22.12.0"
