@@ -415,7 +415,7 @@ describe('observer serializer privacy boundary', () => {
     expect(running.receipt).toBeNull();
     expect(running.transcript).toEqual([
       'Private purchase request submitted',
-      'Private authorization proof in progress',
+      'Demo authorization fixture in progress',
     ]);
     expect(JSON.stringify(running)).not.toContain('SECRET_OWNER_EVENT_TEXT');
   });

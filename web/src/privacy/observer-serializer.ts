@@ -121,7 +121,7 @@ export function toObserverCapability(
 function genericTranscript(overall: ObserverProofState['overall']): string[] {
   if (overall === 'idle') return [];
   if (overall === 'running') {
-    return ['Private purchase request submitted', 'Private authorization proof in progress'];
+    return ['Private purchase request submitted', 'Demo authorization fixture in progress'];
   }
   if (overall === 'approved') {
     return [

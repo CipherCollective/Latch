@@ -26,7 +26,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           <div className="fatal-card" role="alert" aria-live="assertive">
             <span className="eyebrow">Latch recovered safely</span>
             <h1>Something interrupted the private gate.</h1>
-            <p>No policy data was displayed or sent. Reload to start a clean session.</p>
+            <p>Latch does not show or log raw error details. Reload to start a clean session.</p>
             <button type="button" className="button button-primary" onClick={() => window.location.reload()}>
               Reload Latch
             </button>

@@ -19,23 +19,23 @@ import type {
 const PUBLIC_REJECTION = 'Authorization rejected. No private policy values were disclosed.' as const;
 
 const PROOF_STEP_DEFINITIONS: ReadonlyArray<Pick<ProofStep, 'id' | 'label'>> = [
-  { id: 'prepare-witness', label: 'Preparing private witness' },
-  { id: 'derive-destination', label: 'Deriving one-time destination' },
-  { id: 'open-policy', label: 'Opening policy commitment' },
-  { id: 'evaluate-constraints', label: 'Evaluating hidden spending constraints' },
-  { id: 'check-nullifier', label: 'Checking nullifier' },
-  { id: 'submit-proof', label: 'Modeling proof submission (demo fixture)' },
-  { id: 'commit-receipt', label: 'Receipt committed' },
+  { id: 'prepare-witness', label: 'Preparing local fixture inputs' },
+  { id: 'derive-destination', label: 'Deriving demo destination fixture' },
+  { id: 'open-policy', label: 'Recomputing policy fixture commitment' },
+  { id: 'evaluate-constraints', label: 'Evaluating local fixture rules' },
+  { id: 'check-nullifier', label: 'Checking demo nullifier fixture' },
+  { id: 'submit-proof', label: 'Simulating proof submission locally' },
+  { id: 'commit-receipt', label: 'Storing demo receipt fixture' },
 ];
 
 const PASSED_DETAILS: Partial<Record<ProofStepId, string>> = {
-  'prepare-witness': 'Private inputs prepared locally.',
+  'prepare-witness': 'Known demo inputs prepared locally.',
   'derive-destination': 'Demo one-time destination fixture derived.',
-  'open-policy': 'Policy commitment opened privately.',
-  'evaluate-constraints': 'Hidden constraints satisfied.',
-  'check-nullifier': 'Authorization has not been consumed.',
-  'submit-proof': 'Demo proof fixture completed.',
-  'commit-receipt': 'Authorization receipt stored.',
+  'open-policy': 'Policy fixture commitment recomputed locally.',
+  'evaluate-constraints': 'Local fixture rules satisfied.',
+  'check-nullifier': 'Demo authorization nonce has not been consumed.',
+  'submit-proof': 'Submission simulated locally; no proof was created.',
+  'commit-receipt': 'Demo authorization receipt stored in memory.',
 };
 
 export interface MockMoatClientOptions {
