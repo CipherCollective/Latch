@@ -219,7 +219,7 @@ export function WalletConnectionPanel({
       if (epoch !== operationEpoch.current) return;
       setConnectedSession(session);
       setPhase('connected');
-      onConnected(session);
+      onConnectedRef.current(session);
     } catch (error) {
       if (epoch !== operationEpoch.current) return;
       setConnectionError(toPublicWalletError(error));

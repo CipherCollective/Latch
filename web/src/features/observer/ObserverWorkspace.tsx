@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Clipboard, ShieldCheck } from 'lucide-react';
 import {
+  observerTranscriptForStatus,
   serializeObserverReceipt,
   type ObserverWorkspaceModel,
 } from '../../privacy/observer-serializer';
@@ -25,6 +26,7 @@ const verificationStatusCopy: Record<
   verifying: 'Verification in progress',
   verified: 'Verification passed',
   invalid: 'Verification failed',
+  unavailable: 'Verification unavailable. Retry to check this receipt.',
 };
 
 function PublicField({ label, value }: { label: string; value: string }) {
@@ -42,7 +44,10 @@ export function ObserverWorkspace({ model, onVerifyReceipt }: ObserverWorkspaceP
   const [copyAnnouncement, setCopyAnnouncement] = useState('');
   const [verificationAnnouncement, setVerificationAnnouncement] = useState('');
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const { capability, proof, receipt, rejection, transcript } = model;
+  const { capability, proof, receipt, rejection } = model;
+  // Derive final DOM output from fixed public copy. `model.transcript` remains
+  // informational only and can never become an owner-text rendering bypass.
+  const transcript = observerTranscriptForStatus(proof.overall);
 
   useEffect(() => {
     headingRef.current?.focus();

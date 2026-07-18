@@ -9,7 +9,7 @@ import type {
 export const PUBLIC_REJECTION_MESSAGE =
   'Authorization rejected. No private policy values were disclosed.' as const;
 
-export type ObserverVerificationStatus = 'idle' | 'verifying' | 'verified' | 'invalid';
+export type ObserverVerificationStatus = 'idle' | 'verifying' | 'verified' | 'invalid' | 'unavailable';
 
 export interface ObserverProofState {
   overall: 'idle' | 'running' | 'approved' | 'rejected';
@@ -61,7 +61,7 @@ function requireCapabilityId(value: unknown, path: string): string {
   if (!/^(?:cap_[a-z0-9_-]{8,128}|0x[0-9a-fA-F]{64})$/.test(id)) {
     throw new TypeError(`${path} must be an opaque capability identifier.`);
   }
-  return id;
+  return id.startsWith('0x') ? `0x${id.slice(2).toLowerCase()}` : id;
 }
 
 function requireCommitment(value: unknown, path: string): string {
@@ -69,7 +69,7 @@ function requireCommitment(value: unknown, path: string): string {
   if (!/^0x[0-9a-fA-F]{64}$/.test(commitment)) {
     throw new TypeError(`${path} must be a 32-byte hexadecimal commitment.`);
   }
-  return commitment;
+  return `0x${commitment.slice(2).toLowerCase()}`;
 }
 
 function requireCapabilityStatus(value: unknown): CapabilityPublicState['status'] {
@@ -96,7 +96,13 @@ function requireApprovedProofStatus(value: unknown): 'approved' {
 }
 
 function requireVerificationStatus(value: unknown): ObserverVerificationStatus {
-  if (value !== 'idle' && value !== 'verifying' && value !== 'verified' && value !== 'invalid') {
+  if (
+    value !== 'idle' &&
+    value !== 'verifying' &&
+    value !== 'verified' &&
+    value !== 'invalid' &&
+    value !== 'unavailable'
+  ) {
     throw new TypeError('verificationStatus must be a recognized verification status.');
   }
 
@@ -118,7 +124,12 @@ export function toObserverCapability(
   };
 }
 
-function genericTranscript(overall: ObserverProofState['overall']): string[] {
+/**
+ * Returns fresh, fixed observer copy for a validated aggregate proof state.
+ * Unknown runtime values produce no transcript so the final rendering boundary
+ * cannot disclose caller-provided activity text.
+ */
+export function observerTranscriptForStatus(overall: unknown): string[] {
   if (overall === 'idle') return [];
   if (overall === 'running') {
     return ['Private purchase request submitted', 'Demo authorization fixture in progress'];
@@ -131,7 +142,11 @@ function genericTranscript(overall: ObserverProofState['overall']): string[] {
     ];
   }
 
-  return ['Private purchase request submitted', PUBLIC_REJECTION_MESSAGE];
+  if (overall === 'rejected') {
+    return ['Private purchase request submitted', PUBLIC_REJECTION_MESSAGE];
+  }
+
+  return [];
 }
 
 function projectObserverReceipt(
@@ -196,7 +211,7 @@ export function buildObserverWorkspaceModel({
         ? projectObserverReceipt(receipt, publicCapability, verification)
         : null,
     rejection: isRejected ? PUBLIC_REJECTION_MESSAGE : null,
-    transcript: genericTranscript(overall),
+    transcript: observerTranscriptForStatus(overall),
   };
 }
 

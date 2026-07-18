@@ -25,7 +25,7 @@ type SelectedMode = 'landing' | 'demo' | 'wallet';
 type Screen = 'landing' | 'wallet' | 'policy' | 'dashboard';
 type ViewMode = 'owner' | 'observer';
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
-type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
+type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid' | 'unavailable';
 
 const PROOF_STATUS_RANK: Record<ProofStep['status'], number> = {
   waiting: 0,
@@ -123,9 +123,26 @@ function App() {
     setClientError(null);
     try {
       const result = await client.createCapability(input);
-      const state = await client.getCapability(result.capabilityId);
       if (operationEpoch.current !== epoch) return;
-      if (!('policy' in state)) throw new Error('Owner state was unavailable.');
+      let state: CapabilityOwnerState;
+      try {
+        const refreshed = await client.getCapability(result.capabilityId);
+        if (!('policy' in refreshed)) throw new Error('Owner state was unavailable.');
+        state = refreshed;
+      } catch {
+        state = {
+          capabilityId: result.capabilityId,
+          policyCommitment: result.policyCommitment,
+          spendStateCommitment: result.spendStateCommitment,
+          status: 'active',
+          alias: input.alias,
+          policy: input.policy,
+          usesRemaining: input.policy.maxUses,
+          remainingBudget: input.policy.totalBudget,
+        };
+        setClientError('Capability was created, but its state could not refresh. Do not submit it again; retry the page when ready.');
+      }
+      if (operationEpoch.current !== epoch) return;
       setCapability(state);
       setViewMode('owner');
       clearAuthorizationState();
@@ -150,8 +167,14 @@ function App() {
     setClientError(null);
     try {
       await client.revokeCapability(capability.capabilityId);
-      const state = await client.getCapability(capability.capabilityId);
-      if (operationEpoch.current === epoch && 'policy' in state) setCapability(state);
+      if (operationEpoch.current !== epoch) return;
+      try {
+        const state = await client.getCapability(capability.capabilityId);
+        if ('policy' in state) setCapability(state);
+      } catch {
+        setCapability({ ...capability, status: 'revoked' });
+        setClientError('Capability was revoked, but its refreshed state could not be read. Do not retry revocation.');
+      }
     } catch {
       if (operationEpoch.current === epoch) setClientError('Revocation could not be completed. Try again.');
     } finally {
@@ -229,7 +252,7 @@ function App() {
       }
     } catch {
       if (operationEpoch.current === epoch && verificationTarget.current === receiptCommitment) {
-        setVerification('invalid');
+        setVerification('unavailable');
       }
     }
   };
@@ -262,7 +285,7 @@ function App() {
         Skip to main content
       </a>
       <header className="site-header">
-        <BrandMark />
+        <BrandMark onNavigateHome={returnHome} />
         <div className="header-meta">
           <span className="protocol-chip">
             <Network aria-hidden="true" size={14} />
@@ -337,7 +360,7 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <BrandMark />
+        <BrandMark onNavigateHome={returnHome} />
         <p>Private spending capabilities for autonomous agents.</p>
         <span>Built for the Midnight Hackathon · DeFi</span>
         <a href={`${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.txt`}>Third-party notices</a>

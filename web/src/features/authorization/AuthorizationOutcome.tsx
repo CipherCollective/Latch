@@ -4,7 +4,7 @@ import { serializeOwnerReceipt } from '../../lib/receipt-serialization';
 import type { AuthorizationReceipt, AuthorizationResult, PrivateRejectionCode } from '../../types/domain';
 
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
-type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
+type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid' | 'unavailable';
 
 interface AuthorizationOutcomeProps {
   receipt: AuthorizationReceipt | null;
@@ -28,6 +28,7 @@ const verificationCopy: Record<VerificationState, string> = {
   verifying: 'Verifying receipt.',
   verified: 'Receipt verification passed.',
   invalid: 'Receipt verification failed.',
+  unavailable: 'Receipt verification was unavailable. Retry to check this receipt.',
 };
 
 function safeHttpsUrl(value: string | undefined): string | null {
@@ -114,7 +115,7 @@ function ApprovedOutcome({
         <div>
           <span className="verified-authorization-badge">
             <CheckCircle2 aria-hidden="true" size={16} />
-            {isDemoFixture ? 'Fixture authorization verified' : 'Verified authorization'}
+            {isDemoFixture ? 'Fixture authorization accepted' : 'Authorization accepted'}
           </span>
           <h2 id="authorization-approved-title">Private gate passed</h2>
         </div>

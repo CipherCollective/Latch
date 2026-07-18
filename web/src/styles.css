@@ -3,7 +3,7 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizelegibility;
   --canvas: #07111f;
   --canvas-raised: #0d1a2b;
   --panel: #f6f7fb;
@@ -525,7 +525,7 @@ h1 {
   top: 20px;
   right: 22px;
   color: #65738a;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
 }
 
@@ -565,7 +565,7 @@ h1 {
 .architecture-flow div > span {
   margin-bottom: 28px;
   color: #6952e6;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
 }
 
@@ -736,7 +736,7 @@ h1 {
 
 .observer-field code {
   color: #d8d1ff;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.69rem;
 }
 
@@ -822,7 +822,7 @@ h1 {
   color: #9c8eff;
   content: counter(observer-event, decimal-leading-zero);
   counter-increment: observer-event;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 
 .observer-rejection {
@@ -1144,7 +1144,7 @@ h1 {
   height: 1px;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -1492,7 +1492,7 @@ h1 {
   display: block;
   overflow: hidden;
   color: #d8d1ff;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1754,7 +1754,7 @@ h1 {
   color: #9c8eff;
   content: counter(activity, decimal-leading-zero);
   counter-increment: activity;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 
 .event-log > p {
@@ -1824,7 +1824,7 @@ h1 {
   background: #07111f;
   color: #d8d1ff;
   padding: 18px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.74rem;
   line-height: 1.65;
   white-space: pre-wrap;
@@ -2047,7 +2047,7 @@ h1 {
 .receipt-field code {
   display: block;
   color: #d8d1ff;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 0.68rem;
   overflow-wrap: anywhere;
 }
@@ -2189,7 +2189,7 @@ h1 {
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }

@@ -57,7 +57,7 @@ describe('ObserverWorkspace', () => {
     expect(screen.getByText(RECEIPT_COMMITMENT)).toBeVisible();
     expect(screen.getByText(NULLIFIER)).toBeVisible();
     expect(screen.getByText('Private purchase request submitted')).toBeVisible();
-    expect(screen.getByText('Authorization result received')).toBeVisible();
+    expect(screen.getByText('Private authorization approved')).toBeVisible();
 
     expect(screen.queryByRole('list', { name: 'Public proof steps' })).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('Authorization inputs prepared');
