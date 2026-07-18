@@ -31,14 +31,10 @@ independently verified core factory.
 Use the supported Node release line and a clean checkout:
 
 ```bash
-git switch fix/atharv/wallet-focus-stability
 npm ci
 npm run typecheck
 npm run test:run
-npm run build --workspace @latch/web -- \
-  --base /Latch/ \
-  --outDir ../docs \
-  --emptyOutDir false
+npm run build:pages
 npx --yes prettier@3.6.2 --write docs/index.html
 ```
 
@@ -67,9 +63,9 @@ SHA-256 values are lowercase hexadecimal over the exact committed bytes.
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `docs/index.html` | 1,195 | `6909b92e0e06e3f50396d38b028a8c934bc749910792a6078eb90f270ba15f16` |
-| `docs/assets/index-BT-wR-fx.css` | 32,714 | `078a774b6d2aed68be0b3113c8745f5292420800537bc7ab4cc5f546862150e4` |
-| `docs/assets/index-DOWw7dSK.js` | 292,023 | `5611fb94c4d492b3496b80d3673558be5743eb8940de5f56190703b7afead5d5` |
+| `docs/index.html` | 1,195 | `f95c614b3cc5c6130d6e10b96e444d12e13353dfcc8275cabe4be5f9aaa8ae29` |
+| `docs/assets/index-RNyzXTd4.css` | 32,712 | `9d1972bafa18cc2155d01696def99451f106117cce8e9ed1322d99a720028568` |
+| `docs/assets/index-CWrhvGPy.js` | 293,586 | `c1f90ba0a24856c8696792b7a986e9a2c2d38046bbccdccb240c1ae6d3ea6b86` |
 | `docs/latch-mark.svg` | 447 | `ace7249d68ab2d51a83897ac6fdd26cea6ac8f8a0128b5c060991ad9935eb1a9` |
 | `docs/THIRD_PARTY_NOTICES.txt` | 18,074 | `9bb1763e0847029c4cbdbc9d01e13596456cb6eacbfe96f90b654acb9031a89f` |
 | `docs/.nojekyll` | 48 | `95db1598a91b84c16ce818427289c2c3d9e5d4e363ae997af53cf9c000734a63` |
