@@ -12,3 +12,5 @@ This log records work performed in the Atharv/Codex workstream. It must not cont
 - **Deliverable:** `docs/LATCH_ATHARV_BUILD_SPEC.md`.
 - **Validation:** Requirement traceability checks passed; Markdown code fences are balanced; `git diff --check` passed.
 - **Blockers:** None for specification. Real integration facts remain an Ashiha handoff dependency and are explicitly marked `[CORE FACT REQUIRED]` in downstream documentation.
+- **Git handoff:** Committed the specification on `feat/atharv/spec` and pushed the branch to `origin` without touching `main`.
+- **PR handoff:** Automatic PR creation was unavailable: GitHub CLI was not installed and the configured GitHub connector returned repository `404`. Use `https://github.com/CipherCollective/Latch/pull/new/feat/atharv/spec` to open the prepared review PR.
