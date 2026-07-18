@@ -15,7 +15,7 @@ This log is for the Compact / Midnight / cryptography workstream. It must not co
 | Compact toolchain | **0.31.1** (support-matrix target) |
 | Compact language pragma | `>= 0.22` |
 | Compact runtime (pinned) | `@midnight-ntwrk/compact-runtime@0.16.0` |
-| Midnight.js (not wired yet) | support matrix lists 4.1.1 — deferred to real-client branch |
+| Midnight.js (not wired yet) | support matrix lists 4.1.1 — deferred to real-client / deploy |
 
 ## Midnight skills
 
@@ -25,69 +25,65 @@ Command run from repository root:
 npx skills add Kali-Decoder/Midnight-skills
 ```
 
-Result: **30 skills installed** under `.agents/skills/` (gitignored). Relevant skills inspected for this branch: `compact`, `example-counter`, `midnight-environment-setup`.
+Result: **30 skills installed** under `.agents/skills/` (gitignored).
 
 ## Branch
 
-- Prior: `feat/ashiha/authorize-spend` — this work depends on it until merged to `main`.
-- Active branch: `feat/ashiha/revoke-capability`
-- Ownership: `contract/**`, `docs/CORE_STATUS.md`
-- Did **not** edit `web/**`.
+- Active branch: `feat/ashiha/api-client`
+- Depends on: `feat/ashiha/revoke-capability` (and prior contract PRs) until merged to `main`
+- Ownership: `api/**`, root workspace scripts, `docs/CORE_STATUS.md`, `.env.example`
+- Did **not** edit `web/**`
 
-## Deliverable — revokeCapability
+## Deliverable — `@latch/api` client package
 
 | Path | Role |
 | --- | --- |
-| `contract/src/moat.compact` | `createCapability` + `authorizeSpend` + `revokeCapability` |
+| `api/src/types.ts` | Shared `MoatClient` / policy / spend / proof-step types for Atharv |
+| `api/src/commitments.ts` | Domain-separated SHA-256 concat model of Compact domains |
+| `api/src/stealth.ts` | secp256k1 one-time destinations (`@noble/secp256k1` + HMAC setup) |
+| `api/src/mock-client.ts` | Deterministic demo `MockMoatClient` (no chain txs) |
+| `api/src/moat-client.ts` | Real-client seam (`CoreHandoffRequiredError` until deploy handoff) |
+| `api/src/wallet-session.ts` | Minimal session shape for real-client injection |
+| `api/src/index.ts` | Package exports |
+| `.env.example` | Network / proof-server placeholders (no secrets) |
 
-### `revokeCapability` behaviour
+### Behaviour notes
 
-Public circuit arg: `capabilityId` (private until disclosed; same model as authorizeSpend).
+- **MockMoatClient**: creates local capability openings, runs proof-step callbacks, evaluates hidden constraints privately, issues demo receipts / nullifiers, advances spend state via `advanceSpendStateAfterAuthorization`.
+- Demo `createCapability` generates its own agent secret; use `demoAgentKeyHash(capabilityId)` in tests/demo wiring (not a public Atharv surface).
+- **Commitment parity**: TS helpers mirror Compact domain tags; bit-exact Compact `persistentHash` parity is deferred until the real Midnight client lands.
+- **Stealth**: clean-room one-time destination from merchant view/spend meta-address + request nonce; unit-tested sender/receiver agreement.
 
-Checks (generic `"revocation rejected"` messages):
-
-- capability exists and is not already revoked
-- `hashOwner(ownerSecret)` opens stored `ownerCommitment`
-- `hashCapabilityId(ownerSecret, policySalt)` matches the capability ID
-
-On success: overwrite ledger entry with `revoked=true` (policy/spend/owner commitments unchanged).
-
-`authorizeSpend` already rejects revoked capabilities via `assert(!record.revoked, ...)`.
-
-### Compile evidence (revokeCapability)
+### Verify (Windows)
 
 ```bash
-cd "$(git rev-parse --show-toplevel)/contract"
-compact compile src/moat.compact src/managed/moat
-npm run typecheck --workspace @latch/contract
+cd "$(git rev-parse --show-toplevel)"
+npm install
+npm run typecheck:api
+npm run test:api
 ```
 
-Result: **exit 0** — circuits `createCapability`, `authorizeSpend`, `revokeCapability` (toolchain **0.31.1**).
+Result: **exit 0** — `typecheck:api` + **6** vitest tests passed.
 
-### Review follow-ups (PR #16)
-
-- `ensure-managed` regenerates bindings when `moat.compact` is newer than managed output (not only when missing).
-- Removed `maxUses * perTxLimit <= budget` from `createCapability` (valid policies may exhaust budget before maxUses).
-- `authorizeSpend` preserves `record.revoked` on spend-state updates.
-- Witness tests import `./witnesses.js` and cover revoke openings (`ownerSecret` / `policySalt`).
+Compact rebuild still requires WSL (`npm run build --workspace @latch/contract` from WSL). Existing `contract/dist` is enough for API typecheck/tests.
 
 ## Not done yet (next pieces, one-by-one)
 
-1. `api/**` TypeScript client + mock client + stealth module
-2. `docker-compose.yml` / proof-server wiring
+1. `docker-compose.yml` / proof-server wiring
+2. Real Midnight client wired to compiled contract (after deploy handoff)
 3. Full Compact circuit transition tests (simulator / proof path)
+4. Deploy (deferred — last)
 
 ## Blockers
 
-- None for compile/typecheck of `revokeCapability`.
-- Branch depends on unmerged `feat/ashiha/authorize-spend` (and its predecessors) until those land on `main`.
-- Real deploy / Preprod still blocked on funded wallet + proof server.
-- Atharv frontend lives on unmerged feature branches; this branch only adds `contract/**`.
+- None for API typecheck/tests on this branch.
+- Real deploy / Preprod still blocked on funded wallet + proof server + Docker.
+- Atharv frontend lives on unmerged feature branches; consume `@latch/api` exports when ready.
 
 ## Handoff notes for Atharv
 
-- Install Compact inside WSL, then `compact update 0.31.1`.
-- From repo root: `cd "$(git rev-parse --show-toplevel)/contract"` then compile, or use `npm run compact` / `npm run build --workspace @latch/contract`.
-- Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` (or full `build`) after clone so `dist/managed` is present.
-- Circuits available: `createCapability`, `authorizeSpend`, `revokeCapability`.
-- After a successful `authorizeSpend` transaction, call `advanceSpendStateAfterAuthorization(privateState)` before the next spend so local openings match the new ledger spend-state commitment.
+- Import from `@latch/api`: types, `MockMoatClient`, commitment helpers, stealth helpers.
+- Demo mode: `new MockMoatClient()` — label clearly as demo fixtures, not on-chain.
+- Real mode: `createRealMoatClient(factory, session)` throws `CoreHandoffRequiredError` until Ashiha supplies a verified factory (contract address, providers, amount units).
+- After successful `authorizeSpend`, local private state must call `advanceSpendStateAfterAuthorization` (mock already does this).
+- Circuits available on contract side: `createCapability`, `authorizeSpend`, `revokeCapability`.

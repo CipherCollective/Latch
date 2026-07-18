@@ -4,13 +4,19 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "contract"
+    "contract",
+    "api"
   ],
   "scripts": {
     "compact": "npm run compact --workspace @latch/contract",
     "build:contract": "npm run build --workspace @latch/contract",
     "typecheck:contract": "npm run typecheck --workspace @latch/contract",
-    "test:contract": "npm run test --workspace @latch/contract"
+    "test:contract": "npm run test --workspace @latch/contract",
+    "build:api": "npm run build --workspace @latch/api",
+    "typecheck:api": "npm run typecheck --workspace @latch/api",
+    "test:api": "npm run test --workspace @latch/api",
+    "typecheck": "npm run typecheck:contract && npm run typecheck:api",
+    "test": "npm run test:contract && npm run test:api"
   },
   "engines": {
     "node": ">=22.12.0"
