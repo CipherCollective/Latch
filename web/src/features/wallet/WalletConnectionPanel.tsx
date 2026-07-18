@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_REAL_NETWORK,
   MidnightWalletConnector,
@@ -121,6 +121,8 @@ export function WalletConnectionPanel({
   const operationEpoch = useRef(0);
   const connectionInFlight = useRef(false);
   const validationInFlight = useRef(false);
+  const onConnectedRef = useRef(onConnected);
+  const onDisconnectedRef = useRef(onDisconnected);
 
   const compatibleWallets = wallets.filter((wallet) => wallet.compatible);
   const incompatibleWallets = wallets.filter((wallet) => !wallet.compatible);
@@ -163,7 +165,12 @@ export function WalletConnectionPanel({
     headingRef.current?.focus();
   }, [phase, connectionError?.code, wallets.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    onConnectedRef.current = onConnected;
+    onDisconnectedRef.current = onDisconnected;
+  }, [onConnected, onDisconnected]);
+
+  useLayoutEffect(() => {
     if (phase !== 'connected' || !connectedSession) return;
     let active = true;
 
@@ -175,13 +182,13 @@ export function WalletConnectionPanel({
         const refreshedSession = await connector.revalidate(connectedSession);
         if (!active || epoch !== operationEpoch.current) return;
         setConnectedSession(refreshedSession);
-        onConnected(refreshedSession);
+        onConnectedRef.current(refreshedSession);
       } catch (error) {
         if (!active || epoch !== operationEpoch.current) return;
         setConnectedSession(null);
         setConnectionError(toPublicWalletError(error));
         setPhase('error');
-        onDisconnected();
+        onDisconnectedRef.current();
       } finally {
         validationInFlight.current = false;
       }
@@ -198,7 +205,7 @@ export function WalletConnectionPanel({
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [connectedSession, connector, onConnected, onDisconnected, phase]);
+  }, [connectedSession, connector, phase]);
 
   const connectWallet = async () => {
     if (!selectedWallet || phase === 'connecting' || connectionInFlight.current) return;
