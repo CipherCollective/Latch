@@ -76,10 +76,22 @@ Numeric fields are cast to `Bytes<32>` inside the hash vectors so Compact keeps 
 ### Compile evidence
 
 ```bash
-# Inside WSL Ubuntu
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.local/bin"
-cd "/mnt/d/project/MidnightHack 2/Latch/contract"
+# From repository root (WSL Ubuntu recommended for Compact on Windows hosts)
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+cd "$(git rev-parse --show-toplevel)/contract"
 compact compile src/moat.compact src/managed/moat
+```
+
+Or from the repo root after Compact is on `PATH`:
+
+```bash
+npm run compact
+```
+
+Package build (compile + TypeScript + copy managed bindings into `dist/`):
+
+```bash
+npm run build --workspace @latch/contract
 ```
 
 Result: **exit 0** — circuit `createCapability` (Compact language **0.23.0** / toolchain **0.31.1** / runtime **0.16.0**).
@@ -87,6 +99,8 @@ Result: **exit 0** — circuit `createCapability` (Compact language **0.23.0** /
 Also passed: `npm run typecheck:contract`.
 
 Generated under `contract/src/managed/moat/` (gitignored): `compiler/contract-info.json`, `contract/index.{js,d.ts}`, prover/verifier keys, zkir artifacts.
+
+`npm run build` copies `src/managed` → `dist/managed` via `contract/scripts/copy-managed.mjs` so `@latch/contract` consumers can resolve `./managed/moat/contract/index.js` from the published `dist/` tree.
 
 Compiler note: ledger `member`/`insert` on a witness-derived ID requires explicit `disclose(capabilityId)`.
 
@@ -107,5 +121,5 @@ Compiler note: ledger `member`/`insert` on a witness-derived ID requires explici
 ## Handoff notes for Atharv
 
 - Install Compact inside WSL, then `compact update 0.31.1`.
-- Compile with the command above (path quoting required because of the space in `MidnightHack 2`).
-- Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` after clone.
+- From repo root: `cd "$(git rev-parse --show-toplevel)/contract"` then compile, or use `npm run compact` / `npm run build --workspace @latch/contract`.
+- Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` (or full `build`) after clone so `dist/managed` is present.
