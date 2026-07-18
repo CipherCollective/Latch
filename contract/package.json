@@ -13,9 +13,10 @@
   },
   "scripts": {
     "compact": "node ./scripts/run-compact.mjs",
+    "ensure-managed": "node ./scripts/ensure-managed.mjs",
     "build": "npm run compact && tsc --project tsconfig.json && node ./scripts/copy-managed.mjs",
-    "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "npm run ensure-managed && tsc --project tsconfig.json --noEmit",
+    "test": "npm run ensure-managed && vitest run"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0"

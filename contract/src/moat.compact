@@ -1,5 +1,6 @@
-// Latch / MOAT — createCapability with private policy / spend-state openings
-// authorizeSpend / revokeCapability land in follow-up branches.
+// Latch / MOAT — createCapability + authorizeSpend
+// revokeCapability lands in a follow-up branch.
+// Depends on: feat/ashiha/compact-bootstrap (createCapability openings).
 
 pragma language_version >= 0.22;
 
@@ -17,6 +18,7 @@ export ledger usedNullifiers: Set<Bytes<32>>;
 export ledger verifiedReceipts: Set<Bytes<32>>;
 export ledger capabilityCount: Counter;
 
+// Shared capability openings
 witness ownerSecret(): Bytes<32>;
 witness policySalt(): Bytes<32>;
 witness agentKeyHash(): Bytes<32>;
@@ -27,6 +29,14 @@ witness allowedCategoryHash(): Bytes<32>;
 witness stateSalt(): Bytes<32>;
 witness spentSoFar(): Uint<64>;
 witness useCount(): Uint<32>;
+
+// authorizeSpend-only openings
+witness agentSecret(): Bytes<32>;
+witness amount(): Uint<64>;
+witness requestCategoryHash(): Bytes<32>;
+witness requestNonce(): Bytes<32>;
+witness oneTimeDestinationHash(): Bytes<32>;
+witness newStateSalt(): Bytes<32>;
 
 pure circuit hashOwner(secret: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<2, Bytes<32>>>([
@@ -43,6 +53,13 @@ pure circuit hashCapabilityId(secret: Bytes<32>, salt: Bytes<32>): Bytes<32> {
   ]);
 }
 
+pure circuit hashAgentKey(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([
+    pad(32, "MOAT_AGENT_KEY_V1"),
+    secret
+  ]);
+}
+
 pure circuit hashPolicy(
   capabilityId: Bytes<32>,
   agentKey: Bytes<32>,
@@ -52,8 +69,6 @@ pure circuit hashPolicy(
   categoryHash: Bytes<32>,
   salt: Bytes<32>
 ): Bytes<32> {
-  // Numeric openings are cast to Bytes<32> so the commitment stays a
-  // homogeneous persistentHash over domain-separated bytes.
   return persistentHash<Vector<8, Bytes<32>>>([
     pad(32, "MOAT_POLICY_V1"),
     capabilityId,
@@ -78,6 +93,49 @@ pure circuit hashSpendState(
     spent as Bytes<32>,
     uses as Bytes<32>,
     salt
+  ]);
+}
+
+pure circuit hashRequest(
+  spendAmount: Uint<64>,
+  categoryHash: Bytes<32>,
+  destinationHash: Bytes<32>,
+  nonce: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<5, Bytes<32>>>([
+    pad(32, "MOAT_REQUEST_V1"),
+    spendAmount as Bytes<32>,
+    categoryHash,
+    destinationHash,
+    nonce
+  ]);
+}
+
+pure circuit hashNullifier(
+  capabilityId: Bytes<32>,
+  nonce: Bytes<32>,
+  agent: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "MOAT_NULLIFIER_V1"),
+    capabilityId,
+    nonce,
+    agent
+  ]);
+}
+
+pure circuit hashReceipt(
+  capabilityId: Bytes<32>,
+  requestCommitment: Bytes<32>,
+  nullifier: Bytes<32>,
+  newSpendStateCommitment: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<5, Bytes<32>>>([
+    pad(32, "MOAT_RECEIPT_V1"),
+    capabilityId,
+    requestCommitment,
+    nullifier,
+    newSpendStateCommitment
   ]);
 }
 
@@ -106,6 +164,8 @@ export circuit createCapability(
   assert(spent == 0 as Uint<64>, "non-zero spend state");
   assert(used == 0 as Uint<32>, "non-zero use count");
   assert(perTxLimit <= budget, "limit exceeds budget");
+  // Fully exercising maxUses at the per-tx ceiling must still fit the budget.
+  assert((uses as Uint<64>) * perTxLimit <= budget, "uses exceed budget");
 
   const capabilityId = hashCapabilityId(secret, salt);
   const ownerCommitment = hashOwner(secret);
@@ -136,4 +196,90 @@ export circuit createCapability(
     }
   );
   capabilityCount.increment(1);
+}
+
+/**
+ * Authorize one spend against a registered capability.
+ * Observer-facing assert copy is intentionally generic (failure privacy).
+ *
+ * Privacy model for `capabilityId`: circuit arguments are private witness-like
+ * inputs until disclosed. Callers prove knowledge of openings that derive this
+ * ID; `disclose(capabilityId)` is what becomes the public ledger key. Do not
+ * treat the undisclosed parameter as already-public chain data.
+ */
+export circuit authorizeSpend(capabilityId: Bytes<32>): [] {
+  const publicCapabilityId = disclose(capabilityId);
+  assert(capabilities.member(publicCapabilityId), "authorization rejected");
+
+  const record = capabilities.lookup(publicCapabilityId);
+  assert(!record.revoked, "authorization rejected");
+
+  const secret = ownerSecret();
+  const salt = policySalt();
+  const agentKey = agentKeyHash();
+  const perTxLimit = perTransactionLimit();
+  const budget = totalBudget();
+  const maxUse = maxUses();
+  const allowedCategory = allowedCategoryHash();
+  const spendSalt = stateSalt();
+  const spent = spentSoFar();
+  const used = useCount();
+  const agent = agentSecret();
+  const spendAmount = amount();
+  const requestCategory = requestCategoryHash();
+  const nonce = requestNonce();
+  const destinationHash = oneTimeDestinationHash();
+  const nextSalt = newStateSalt();
+
+  const derivedId = hashCapabilityId(secret, salt);
+  assert(derivedId == capabilityId, "authorization rejected");
+  assert(hashAgentKey(agent) == agentKey, "authorization rejected");
+
+  const expectedPolicy = hashPolicy(
+    capabilityId,
+    agentKey,
+    perTxLimit,
+    budget,
+    maxUse,
+    allowedCategory,
+    salt
+  );
+  const expectedSpendState = hashSpendState(capabilityId, spent, used, spendSalt);
+  assert(expectedPolicy == record.policyCommitment, "authorization rejected");
+  assert(expectedSpendState == record.spendStateCommitment, "authorization rejected");
+
+  assert(spendAmount > 0 as Uint<64>, "authorization rejected");
+  assert(spendAmount <= perTxLimit, "authorization rejected");
+  assert(spent + spendAmount <= budget, "authorization rejected");
+  assert(requestCategory == allowedCategory, "authorization rejected");
+  assert(used < maxUse, "authorization rejected");
+
+  const requestCommitment = hashRequest(spendAmount, requestCategory, destinationHash, nonce);
+  const nullifier = hashNullifier(capabilityId, nonce, agent);
+  const publicNullifier = disclose(nullifier);
+  assert(!usedNullifiers.member(publicNullifier), "authorization rejected");
+
+  const newSpent = (spent + spendAmount) as Uint<64>;
+  const newUseCount = (used + (1 as Uint<32>)) as Uint<32>;
+  const newSpendStateCommitment = hashSpendState(capabilityId, newSpent, newUseCount, nextSalt);
+  const receiptCommitment = hashReceipt(
+    capabilityId,
+    requestCommitment,
+    nullifier,
+    newSpendStateCommitment
+  );
+
+  usedNullifiers.insert(publicNullifier);
+  verifiedReceipts.insert(disclose(receiptCommitment));
+  // Compact Map.insert creates or overwrites (official update path). This is not
+  // the createCapability uniqueness insert; the key was asserted present above.
+  capabilities.insert(
+    publicCapabilityId,
+    CapabilityPublic {
+      policyCommitment: record.policyCommitment,
+      spendStateCommitment: disclose(newSpendStateCommitment),
+      ownerCommitment: record.ownerCommitment,
+      revoked: false
+    }
+  );
 }
