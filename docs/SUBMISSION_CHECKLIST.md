@@ -21,7 +21,7 @@ evidence.
 - [x] `contract/**` was not edited by the Atharv/Codex workstream.
 - [x] No competing `api/**` implementation was created.
 - [x] Completed feature work through stack 10 is split into stacked review
-  branches; the deployment pull request is recorded below after creation.
+  branches and pull requests.
 - [ ] Every merge satisfied the no-self-merge rule. PRs #2 and #7 were merged
   by their author, Atharv; both process exceptions are recorded and must not be
   represented as compliant.
@@ -41,7 +41,7 @@ evidence.
 | 7 | `fix/atharv/release-claims` | [#7](https://github.com/CipherCollective/Latch/pull/7) | Merged by PR author; process exception |
 | 8 | `ci/atharv/release-gates` | [#8](https://github.com/CipherCollective/Latch/pull/8) | Open — human review required; CI passing |
 | 9 | `feat/atharv/docs` | [#9](https://github.com/CipherCollective/Latch/pull/9) | Open — human review required |
-| 10 | `deploy/atharv/public-demo` | [PULL REQUEST PENDING] | Static artifact and local smoke complete; public host blocked |
+| 10 | `deploy/atharv/public-demo` | [#10](https://github.com/CipherCollective/Latch/pull/10) | Open — human review required; public host blocked |
 | 11 | `release/atharv/integration` | [DEPLOYMENT FACT REQUIRED] | Open from the final stack tip to `main`; human merge required |
 
 ## Automated verification

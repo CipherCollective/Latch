@@ -10,6 +10,7 @@ not currently available, so this repository does **not** claim a live demo URL.
 | --- | --- |
 | Source branch tip | `feat/atharv/docs` at `37bf7c1b3929835fab591c9da73672acb80c13cf` |
 | Deployment branch | `deploy/atharv/public-demo` |
+| Review pull request | [#10 - Prepare verified deployment bundle](https://github.com/CipherCollective/Latch/pull/10) |
 | Static artifact commit | `69b8bddce7b8a839889d9f10872ec0dfae43f6d6` |
 | Base path | `/Latch/` |
 | Entrypoint | `docs/index.html` |

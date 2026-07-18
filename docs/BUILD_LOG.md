@@ -136,3 +136,4 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Truth boundary:** The locally hosted artifact is verified, but no public URL or unauthenticated public-origin smoke is claimed. `docs/DEPLOYMENT.md` retains `[DEPLOYMENT FACT REQUIRED]` and lists the authorized unblock paths.
 - **Live PR update:** PR #7 was merged into `feat/atharv/wallet-adapter` by its author after the documentation snapshot. It joins PR #2 as a recorded no-self-merge process exception; PRs #8 and #9 remained open at this check.
 - **PR handoff:** Pending final deployment-record verification; the resulting URL will be appended without rewriting this event.
+- **PR URL appended after verification:** [#10 - `[STACK 10] Prepare verified deployment bundle`](https://github.com/CipherCollective/Latch/pull/10), targeting `feat/atharv/docs`; no self-merge.
