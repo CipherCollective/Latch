@@ -11,6 +11,10 @@ function keyPair() {
   return { priv, pub };
 }
 
+function demoAgentKeyHash(): string {
+  return toHex32(randomBytes32());
+}
+
 describe('commitments', () => {
   it('uses distinct domains for owner vs capability id', () => {
     const secret = randomBytes32();
@@ -50,9 +54,11 @@ describe('stealth', () => {
     const view = keyPair();
     const spend = keyPair();
     const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
-    const a = await generateOneTimeDestination(merchant, 'nonce-a');
-    const b = await generateOneTimeDestination(merchant, 'nonce-b');
+    const r = secp.utils.randomSecretKey();
+    const a = await generateOneTimeDestination(merchant, 'nonce-a', r);
+    const b = await generateOneTimeDestination(merchant, 'nonce-b', r);
     expect(a.destination).not.toBe(b.destination);
+    expect(a.ephemeralPublicKey).toBe(b.ephemeralPublicKey);
   });
 
   it('agrees between sender and receiver derivation', async () => {
@@ -78,20 +84,49 @@ describe('stealth', () => {
 });
 
 describe('MockMoatClient', () => {
-  it('approves a valid spend, verifies receipt, rejects replay and category failure', async () => {
+  it('rejects policies the contract cannot create', async () => {
     const client = new MockMoatClient();
+    const agentKeyHash = demoAgentKeyHash();
+    await expect(
+      client.createCapability({
+        policy: {
+          agentName: 'Research Agent A',
+          agentKeyHash,
+          perTransactionLimit: 0n,
+          totalBudget: 50n,
+          maxUses: 3,
+          allowedCategory: 'developer-tools',
+        },
+      }),
+    ).rejects.toThrow(/positive/);
+
+    await expect(
+      client.createCapability({
+        policy: {
+          agentName: 'Research Agent A',
+          agentKeyHash,
+          perTransactionLimit: 60n,
+          totalBudget: 50n,
+          maxUses: 3,
+          allowedCategory: 'developer-tools',
+        },
+      }),
+    ).rejects.toThrow(/exceeds totalBudget/);
+  });
+
+  it('approves a valid spend using the create-time agentKeyHash, verifies receipt, rejects replay and category failure', async () => {
+    const client = new MockMoatClient();
+    const agentKeyHash = demoAgentKeyHash();
     const created = await client.createCapability({
       policy: {
         agentName: 'Research Agent A',
-        agentKeyHash: toHex32(randomBytes32()),
+        agentKeyHash,
         perTransactionLimit: 20n,
         totalBudget: 50n,
         maxUses: 3,
         allowedCategory: 'developer-tools',
       },
     });
-    const agentKeyHash = client.demoAgentKeyHash(created.capabilityId);
-    expect(agentKeyHash).toBeTruthy();
 
     const view = keyPair();
     const spend = keyPair();
@@ -104,7 +139,7 @@ describe('MockMoatClient', () => {
         requestId: 'req-1',
         requestNonce,
         agentName: 'Research Agent A',
-        agentKeyHash: agentKeyHash!,
+        agentKeyHash,
         serviceId: 'codeshield',
         serviceName: 'CodeShield',
         category: 'developer-tools',
@@ -122,7 +157,7 @@ describe('MockMoatClient', () => {
         requestId: 'req-1-replay',
         requestNonce,
         agentName: 'Research Agent A',
-        agentKeyHash: agentKeyHash!,
+        agentKeyHash,
         serviceId: 'codeshield',
         serviceName: 'CodeShield',
         category: 'developer-tools',
@@ -139,7 +174,7 @@ describe('MockMoatClient', () => {
         requestId: 'req-2',
         requestNonce: toHex32(randomBytes32()),
         agentName: 'Research Agent A',
-        agentKeyHash: agentKeyHash!,
+        agentKeyHash,
         serviceId: 'alphasignal',
         serviceName: 'AlphaSignal',
         category: 'trading-data',
@@ -149,5 +184,25 @@ describe('MockMoatClient', () => {
     });
     expect(categoryReject.status).toBe('rejected');
     expect(categoryReject.privateReason).toBe('category');
+  });
+
+  it('returns a defensive copy from getCapability', async () => {
+    const client = new MockMoatClient();
+    const agentKeyHash = demoAgentKeyHash();
+    const created = await client.createCapability({
+      policy: {
+        agentName: 'Research Agent A',
+        agentKeyHash,
+        perTransactionLimit: 20n,
+        totalBudget: 50n,
+        maxUses: 3,
+        allowedCategory: 'developer-tools',
+      },
+    });
+    const snap = await client.getCapability(created.capabilityId);
+    expect(snap).toBeTruthy();
+    snap!.revoked = true;
+    const again = await client.getCapability(created.capabilityId);
+    expect(again?.revoked).toBe(false);
   });
 });

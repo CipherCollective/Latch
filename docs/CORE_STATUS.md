@@ -50,9 +50,11 @@ Result: **30 skills installed** under `.agents/skills/` (gitignored).
 ### Behaviour notes
 
 - **MockMoatClient**: creates local capability openings, runs proof-step callbacks, evaluates hidden constraints privately, issues demo receipts / nullifiers, advances spend state via `advanceSpendStateAfterAuthorization`.
-- Demo `createCapability` generates its own agent secret; use `demoAgentKeyHash(capabilityId)` in tests/demo wiring (not a public Atharv surface).
+- Demo `createCapability` **binds** `policy.agentKeyHash` (32-byte hex) into the policy commitment; spend requests must reuse that same hash. A local `agentSecret` is still generated for demo nullifiers — the real client must supply an `agentSecret` that opens the hash via `hashAgentKey`.
+- Policy creation rejects zero/negative limits, `perTransactionLimit > totalBudget`, and values outside Compact `Uint<64>` / `Uint<32>` ranges.
+- `authorizeSpend` / `revokeCapability` are serialized per capability; nullifiers are reserved before proof-step awaits; `getCapability` returns a defensive copy.
 - **Commitment parity**: TS helpers mirror Compact domain tags; bit-exact Compact `persistentHash` parity is deferred until the real Midnight client lands.
-- **Stealth**: clean-room one-time destination from merchant view/spend meta-address + request nonce; unit-tested sender/receiver agreement.
+- **Stealth**: clean-room one-time destination from merchant view/spend meta-address + request nonce; unit-tested sender/receiver agreement (fixed ephemeral scalar when asserting nonce binding).
 
 ### Verify (Windows)
 
@@ -63,7 +65,7 @@ npm run typecheck:api
 npm run test:api
 ```
 
-Result: **exit 0** — `typecheck:api` + **6** vitest tests passed.
+Result: **exit 0** — `typecheck:api` + **8** vitest tests passed.
 
 Compact rebuild still requires WSL (`npm run build --workspace @latch/contract` from WSL). Existing `contract/dist` is enough for API typecheck/tests.
 

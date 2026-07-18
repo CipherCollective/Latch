@@ -15,6 +15,7 @@
     "compact": "node ./scripts/run-compact.mjs",
     "ensure-managed": "node ./scripts/ensure-managed.mjs",
     "build": "npm run compact && tsc --project tsconfig.json && node ./scripts/copy-managed.mjs",
+    "build:dist": "npm run ensure-managed && tsc --project tsconfig.json && node ./scripts/copy-managed.mjs",
     "typecheck": "npm run ensure-managed && tsc --project tsconfig.json --noEmit",
     "test": "npm run ensure-managed && vitest run"
   },

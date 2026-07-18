@@ -12,9 +12,10 @@
     "build:contract": "npm run build --workspace @latch/contract",
     "typecheck:contract": "npm run typecheck --workspace @latch/contract",
     "test:contract": "npm run test --workspace @latch/contract",
-    "build:api": "npm run build --workspace @latch/api",
-    "typecheck:api": "npm run typecheck --workspace @latch/api",
-    "test:api": "npm run test --workspace @latch/api",
+    "prepare:contract": "npm run build:dist --workspace @latch/contract",
+    "build:api": "npm run prepare:contract && npm run build --workspace @latch/api",
+    "typecheck:api": "npm run prepare:contract && npm run typecheck --workspace @latch/api",
+    "test:api": "npm run prepare:contract && npm run test --workspace @latch/api",
     "typecheck": "npm run typecheck:contract && npm run typecheck:api",
     "test": "npm run test:contract && npm run test:api"
   },

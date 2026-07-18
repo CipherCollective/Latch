@@ -1,7 +1,6 @@
 import { advanceSpendStateAfterAuthorization, createMoatPrivateState } from '@latch/contract';
 
 import {
-  hashAgentKey,
   hashCapabilityId,
   hashCategory,
   hashNullifier,
@@ -21,6 +20,7 @@ import type {
   CreateCapabilityInput,
   CreateCapabilityResult,
   MoatClient,
+  PolicyInput,
   PrivateRejectReason,
   ProofStep,
   SpendRequest,
@@ -34,6 +34,8 @@ type StoredCapability = {
 };
 
 const PUBLIC_REJECTION = 'Authorization rejected. No private policy values were disclosed.';
+const UINT64_MAX = (1n << 64n) - 1n;
+const UINT32_MAX = (1n << 32n) - 1n;
 
 function proofTemplate(): ProofStep[] {
   return [
@@ -70,6 +72,31 @@ async function runSteps(
   return updated;
 }
 
+/** Mirror Compact createCapability policy asserts (Uint ranges + positivity). */
+export function assertCreatablePolicy(policy: PolicyInput): void {
+  const perTx = policy.perTransactionLimit;
+  const budget = policy.totalBudget;
+  const uses = BigInt(policy.maxUses);
+
+  if (perTx <= 0n || budget <= 0n || uses <= 0n) {
+    throw new Error('invalid policy: limits must be positive');
+  }
+  if (perTx > budget) {
+    throw new Error('invalid policy: perTransactionLimit exceeds totalBudget');
+  }
+  if (perTx > UINT64_MAX || budget > UINT64_MAX) {
+    throw new Error('invalid policy: amount exceeds Uint<64>');
+  }
+  if (uses > UINT32_MAX) {
+    throw new Error('invalid policy: maxUses exceeds Uint<32>');
+  }
+
+  const hex = policy.agentKeyHash.startsWith('0x') ? policy.agentKeyHash.slice(2) : policy.agentKeyHash;
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('invalid policy: agentKeyHash must be 32-byte hex');
+  }
+}
+
 /**
  * Deterministic demo MoatClient — clearly labeled demo fixtures, no chain txs.
  */
@@ -77,10 +104,31 @@ export class MockMoatClient implements MoatClient {
   readonly #capabilities = new Map<string, StoredCapability>();
   readonly #receipts = new Set<string>();
   readonly #nullifiers = new Set<string>();
+  readonly #locks = new Map<string, Promise<unknown>>();
   readonly #stepDelayMs: number;
 
   constructor(options?: { stepDelayMs?: number }) {
     this.#stepDelayMs = options?.stepDelayMs ?? 0;
+  }
+
+  async #withCapabilityLock<T>(capabilityId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.#locks.get(capabilityId) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.then(() => gate);
+    this.#locks.set(
+      capabilityId,
+      tail.catch(() => undefined),
+    );
+    await previous.catch(() => undefined);
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (this.#locks.get(capabilityId) === tail) this.#locks.delete(capabilityId);
+    }
   }
 
   async connectWallet(): Promise<WalletSnapshot> {
@@ -91,12 +139,16 @@ export class MockMoatClient implements MoatClient {
   }
 
   async createCapability(input: CreateCapabilityInput): Promise<CreateCapabilityResult> {
+    assertCreatablePolicy(input.policy);
+
     const ownerSecret = randomBytes32();
     const policySalt = randomBytes32();
     const stateSalt = randomBytes32();
+    // Bind the public policy agent key hash from the caller (Atharv / UI).
+    // Demo nullifiers still need a local agentSecret; the real client must use
+    // an agentSecret that opens this same hash via hashAgentKey.
+    const agentKeyHash = normalizeBytes32(input.policy.agentKeyHash);
     const agentSecret = randomBytes32();
-    // Demo binds a generated agent secret; policy.agentKeyHash is accepted as metadata only.
-    const agentKeyHash = hashAgentKey(agentSecret);
     const categoryHash = hashCategory(input.policy.allowedCategory);
     const capabilityId = hashCapabilityId(ownerSecret, policySalt);
     const ownerCommitment = hashOwner(ownerSecret);
@@ -160,136 +212,157 @@ export class MockMoatClient implements MoatClient {
   }): Promise<AuthorizationResult> {
     if (this.#stepDelayMs > 0) await new Promise((r) => setTimeout(r, this.#stepDelayMs));
 
-    const stored = this.#capabilities.get(input.capabilityId);
-    const steps = proofTemplate();
-    const emptyRequestCommitment = toHex32(randomBytes32());
+    return this.#withCapabilityLock(input.capabilityId, async () => {
+      const steps = proofTemplate();
+      const emptyRequestCommitment = toHex32(randomBytes32());
+      const stored = this.#capabilities.get(input.capabilityId);
 
-    if (!stored) {
-      return {
+      if (!stored) {
+        return {
+          status: 'rejected',
+          capabilityId: input.capabilityId,
+          requestCommitment: emptyRequestCommitment,
+          publicMessage: PUBLIC_REJECTION,
+          privateReason: 'revoked',
+          proofSteps: await runSteps(steps, 'open-policy', input.onProofStep, 'open-policy'),
+        };
+      }
+
+      if (stored.publicState.revoked) {
+        return {
+          status: 'rejected',
+          capabilityId: input.capabilityId,
+          requestCommitment: emptyRequestCommitment,
+          publicMessage: PUBLIC_REJECTION,
+          privateReason: 'revoked',
+          proofSteps: await runSteps(steps, 'open-policy', input.onProofStep, 'open-policy'),
+        };
+      }
+
+      const destination = await this.generateOneTimeDestination(
+        input.request.merchant,
+        input.request.requestNonce,
+      );
+
+      const privateState = {
+        ...stored.privateState,
+        amount: input.request.amount,
+        requestCategoryHash: hashCategory(input.request.category),
+        requestNonce: normalizeBytes32(input.request.requestNonce),
+        oneTimeDestinationHash: normalizeBytes32(destination.destinationHash),
+        newStateSalt: randomBytes32(),
+      };
+
+      const capabilityId = normalizeBytes32(input.capabilityId);
+      const requestCommitment = hashRequest({
+        amount: privateState.amount,
+        categoryHash: privateState.requestCategoryHash,
+        oneTimeDestinationHash: privateState.oneTimeDestinationHash,
+        requestNonce: privateState.requestNonce,
+      });
+
+      const reject = async (reason: PrivateRejectReason, failAt: string): Promise<AuthorizationResult> => ({
         status: 'rejected',
         capabilityId: input.capabilityId,
-        requestCommitment: emptyRequestCommitment,
+        requestCommitment: toHex32(requestCommitment),
         publicMessage: PUBLIC_REJECTION,
-        privateReason: 'revoked',
-        proofSteps: await runSteps(steps, 'open-policy', input.onProofStep, 'open-policy'),
-      };
-    }
+        privateReason: reason,
+        proofSteps: await runSteps(steps, failAt, input.onProofStep, failAt),
+      });
 
-    if (stored.publicState.revoked) {
+      if (toHex32(normalizeBytes32(input.request.agentKeyHash)) !== toHex32(privateState.agentKeyHash)) {
+        return reject('agent', 'evaluate-constraints');
+      }
+
+      if (input.request.amount <= 0n || input.request.amount > privateState.perTransactionLimit) {
+        return reject('limit', 'evaluate-constraints');
+      }
+      if (privateState.spentSoFar + input.request.amount > privateState.totalBudget) {
+        return reject('budget', 'evaluate-constraints');
+      }
+      if (toHex32(hashCategory(input.request.category)) !== toHex32(privateState.allowedCategoryHash)) {
+        return reject('category', 'evaluate-constraints');
+      }
+      if (privateState.useCount >= privateState.maxUses) {
+        return reject('uses', 'evaluate-constraints');
+      }
+
+      const nullifier = hashNullifier({
+        capabilityId,
+        requestNonce: privateState.requestNonce,
+        agentSecret: privateState.agentSecret,
+      });
+      const nullifierHex = toHex32(nullifier);
+      if (this.#nullifiers.has(nullifierHex)) {
+        return reject('replay', 'check-nullifier');
+      }
+
+      // Reserve before awaiting proof-step callbacks so concurrent calls cannot both approve.
+      this.#nullifiers.add(nullifierHex);
+
+      const newSpendStateCommitment = hashSpendState({
+        capabilityId,
+        spentSoFar: privateState.spentSoFar + privateState.amount,
+        useCount: privateState.useCount + 1n,
+        stateSalt: privateState.newStateSalt,
+      });
+      const receiptCommitment = hashReceipt({
+        capabilityId,
+        requestCommitment,
+        nullifier,
+        newSpendStateCommitment,
+      });
+      const receiptHex = toHex32(receiptCommitment);
+
+      const proofSteps = await runSteps(steps, 'commit-receipt', input.onProofStep);
+
+      // Re-check after yielding — revoke during steps must still win.
+      if (stored.publicState.revoked) {
+        this.#nullifiers.delete(nullifierHex);
+        return {
+          status: 'rejected',
+          capabilityId: input.capabilityId,
+          requestCommitment: toHex32(requestCommitment),
+          publicMessage: PUBLIC_REJECTION,
+          privateReason: 'revoked',
+          proofSteps: proofSteps.map((step) =>
+            step.id === 'commit-receipt' ? { ...step, status: 'failed' as const } : step,
+          ),
+        };
+      }
+
+      this.#receipts.add(receiptHex);
+      stored.privateState = advanceSpendStateAfterAuthorization(privateState);
+      stored.publicState = {
+        ...stored.publicState,
+        spendStateCommitment: toHex32(newSpendStateCommitment),
+      };
+
       return {
-        status: 'rejected',
+        status: 'approved',
         capabilityId: input.capabilityId,
-        requestCommitment: emptyRequestCommitment,
-        publicMessage: PUBLIC_REJECTION,
-        privateReason: 'revoked',
-        proofSteps: await runSteps(steps, 'open-policy', input.onProofStep, 'open-policy'),
+        requestCommitment: toHex32(requestCommitment),
+        receiptCommitment: receiptHex,
+        nullifier: nullifierHex,
+        oneTimeDestination: destination,
+        publicMessage: 'Demo authorization fixture accepted. Not an on-chain transaction.',
+        proofSteps,
       };
-    }
-
-    const destination = await this.generateOneTimeDestination(
-      input.request.merchant,
-      input.request.requestNonce,
-    );
-
-    let privateState = {
-      ...stored.privateState,
-      amount: input.request.amount,
-      requestCategoryHash: hashCategory(input.request.category),
-      requestNonce: normalizeBytes32(input.request.requestNonce),
-      oneTimeDestinationHash: normalizeBytes32(destination.destinationHash),
-      newStateSalt: randomBytes32(),
-    };
-
-    const capabilityId = normalizeBytes32(input.capabilityId);
-    const requestCommitment = hashRequest({
-      amount: privateState.amount,
-      categoryHash: privateState.requestCategoryHash,
-      oneTimeDestinationHash: privateState.oneTimeDestinationHash,
-      requestNonce: privateState.requestNonce,
     });
-
-    const reject = async (reason: PrivateRejectReason, failAt: string): Promise<AuthorizationResult> => ({
-      status: 'rejected',
-      capabilityId: input.capabilityId,
-      requestCommitment: toHex32(requestCommitment),
-      publicMessage: PUBLIC_REJECTION,
-      privateReason: reason,
-      proofSteps: await runSteps(steps, failAt, input.onProofStep, failAt),
-    });
-
-    if (toHex32(normalizeBytes32(input.request.agentKeyHash)) !== toHex32(privateState.agentKeyHash)) {
-      return reject('agent', 'evaluate-constraints');
-    }
-
-    if (input.request.amount <= 0n || input.request.amount > privateState.perTransactionLimit) {
-      return reject('limit', 'evaluate-constraints');
-    }
-    if (privateState.spentSoFar + input.request.amount > privateState.totalBudget) {
-      return reject('budget', 'evaluate-constraints');
-    }
-    if (toHex32(hashCategory(input.request.category)) !== toHex32(privateState.allowedCategoryHash)) {
-      return reject('category', 'evaluate-constraints');
-    }
-    if (privateState.useCount >= privateState.maxUses) {
-      return reject('uses', 'evaluate-constraints');
-    }
-
-    const nullifier = hashNullifier({
-      capabilityId,
-      requestNonce: privateState.requestNonce,
-      agentSecret: privateState.agentSecret,
-    });
-    const nullifierHex = toHex32(nullifier);
-    if (this.#nullifiers.has(nullifierHex)) {
-      return reject('replay', 'check-nullifier');
-    }
-
-    const newSpendStateCommitment = hashSpendState({
-      capabilityId,
-      spentSoFar: privateState.spentSoFar + privateState.amount,
-      useCount: privateState.useCount + 1n,
-      stateSalt: privateState.newStateSalt,
-    });
-    const receiptCommitment = hashReceipt({
-      capabilityId,
-      requestCommitment,
-      nullifier,
-      newSpendStateCommitment,
-    });
-    const receiptHex = toHex32(receiptCommitment);
-
-    const proofSteps = await runSteps(steps, 'commit-receipt', input.onProofStep);
-    this.#nullifiers.add(nullifierHex);
-    this.#receipts.add(receiptHex);
-
-    const advanced = advanceSpendStateAfterAuthorization(privateState);
-    stored.privateState = advanced;
-    stored.publicState = {
-      ...stored.publicState,
-      spendStateCommitment: toHex32(newSpendStateCommitment),
-    };
-
-    return {
-      status: 'approved',
-      capabilityId: input.capabilityId,
-      requestCommitment: toHex32(requestCommitment),
-      receiptCommitment: receiptHex,
-      nullifier: nullifierHex,
-      oneTimeDestination: destination,
-      publicMessage: 'Demo authorization fixture accepted. Not an on-chain transaction.',
-      proofSteps,
-    };
   }
 
   async revokeCapability(capabilityId: string): Promise<TxResult> {
-    const stored = this.#capabilities.get(capabilityId);
-    if (!stored) return { success: false };
-    stored.publicState = { ...stored.publicState, revoked: true };
-    return { success: true };
+    return this.#withCapabilityLock(capabilityId, async () => {
+      const stored = this.#capabilities.get(capabilityId);
+      if (!stored) return { success: false };
+      stored.publicState = { ...stored.publicState, revoked: true };
+      return { success: true };
+    });
   }
 
   async getCapability(capabilityId: string): Promise<CapabilityPublicState | null> {
-    return this.#capabilities.get(capabilityId)?.publicState ?? null;
+    const publicState = this.#capabilities.get(capabilityId)?.publicState;
+    return publicState ? { ...publicState } : null;
   }
 
   async verifyReceipt(receiptCommitment: string): Promise<boolean> {
@@ -301,11 +374,5 @@ export class MockMoatClient implements MoatClient {
     requestNonce: string,
   ) {
     return generateOneTimeDestination(merchant, requestNonce);
-  }
-
-  /** Demo/test helper — not part of the public MoatClient surface Atharv should rely on. */
-  demoAgentKeyHash(capabilityId: string): string | undefined {
-    const stored = this.#capabilities.get(capabilityId);
-    return stored ? toHex32(stored.privateState.agentKeyHash) : undefined;
   }
 }
