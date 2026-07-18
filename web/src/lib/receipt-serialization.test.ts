@@ -123,4 +123,18 @@ describe('owner receipt clipboard serialization', () => {
 
     expect(() => serializeOwnerReceipt(poisonedLeaf)).toThrow(/capabilityId must be a string/i);
   });
+
+  it('rejects transaction enum values outside the runtime allowlist', () => {
+    const invalidKind = {
+      ...hostileReceipt,
+      tx: { ...hostileReceipt.tx, kind: 'INJECTED_PRIVATE_KIND' },
+    } as unknown as AuthorizationReceipt;
+    const invalidNetwork = {
+      ...hostileReceipt,
+      tx: { ...hostileReceipt.tx, networkId: 'INJECTED_PRIVATE_NETWORK' },
+    } as unknown as AuthorizationReceipt;
+
+    expect(() => serializeOwnerReceipt(invalidKind)).toThrow(/tx\.kind must be/i);
+    expect(() => serializeOwnerReceipt(invalidNetwork)).toThrow(/tx\.networkId must be/i);
+  });
 });
