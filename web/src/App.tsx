@@ -7,6 +7,9 @@ import { CapabilityDashboard } from './features/capability/CapabilityDashboard';
 import { PolicyBuilder } from './features/capability/PolicyBuilder';
 import { ALPHA_SIGNAL_REQUEST, CODE_SHIELD_REQUEST } from './demo/requests';
 import type { ActivityEvent, DemoRequestKind } from './features/authorization/AgentActivityConsole';
+import { ObserverWorkspace } from './features/observer/ObserverWorkspace';
+import { ViewModeToggle } from './features/observer/ViewModeToggle';
+import { buildObserverWorkspaceModel } from './privacy/observer-serializer';
 import { useMoatClient } from './services/moat-provider';
 import type {
   AuthorizationReceipt,
@@ -18,6 +21,7 @@ import type {
 
 type SelectedMode = 'landing' | 'demo' | 'wallet';
 type Screen = 'landing' | 'policy' | 'dashboard';
+type ViewMode = 'owner' | 'observer';
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
 type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
 
@@ -32,6 +36,7 @@ function App() {
   const client = useMoatClient();
   const [selectedMode, setSelectedMode] = useState<SelectedMode>('landing');
   const [screen, setScreen] = useState<Screen>('landing');
+  const [viewMode, setViewMode] = useState<ViewMode>('owner');
   const [capability, setCapability] = useState<CapabilityOwnerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [authorizationBusy, setAuthorizationBusy] = useState(false);
@@ -47,6 +52,7 @@ function App() {
   const authorizationInFlight = useRef(false);
   const eventCounter = useRef(0);
   const eventKeys = useRef(new Set<string>());
+  const verificationTarget = useRef<string | null>(null);
 
   const advanceEpoch = () => {
     operationEpoch.current += 1;
@@ -61,6 +67,7 @@ function App() {
     setApprovedReceipt(null);
     setRejection(null);
     setVerification('idle');
+    verificationTarget.current = null;
     setEvents([]);
     setActiveRequestLabel(undefined);
     eventKeys.current.clear();
@@ -77,6 +84,7 @@ function App() {
   const enterDemo = () => {
     advanceEpoch();
     setSelectedMode('demo');
+    setViewMode('owner');
     setClientError(null);
     setCapability(null);
     clearAuthorizationState();
@@ -86,6 +94,7 @@ function App() {
   const chooseWallet = () => {
     advanceEpoch();
     setSelectedMode('wallet');
+    setViewMode('owner');
     setClientError(null);
     clearAuthorizationState();
   };
@@ -102,6 +111,7 @@ function App() {
       if (operationEpoch.current !== epoch) return;
       if (!('policy' in state)) throw new Error('Owner state was unavailable.');
       setCapability(state);
+      setViewMode('owner');
       clearAuthorizationState();
       setScreen('dashboard');
     } catch {
@@ -169,6 +179,7 @@ function App() {
       setProofSteps(result.proofSteps);
       addEvent(`${runKey}-result`, result.status === 'approved' ? 'Approved result received.' : 'Rejected result received.', epoch);
       if (result.status === 'approved') {
+        verificationTarget.current = null;
         setApprovedReceipt(result.receipt);
         setRejection(null);
         setVerification('idle');
@@ -192,12 +203,18 @@ function App() {
   const verifyReceipt = async () => {
     if (!approvedReceipt || verification === 'verifying') return;
     const epoch = operationEpoch.current;
+    const receiptCommitment = approvedReceipt.receiptCommitment;
+    verificationTarget.current = receiptCommitment;
     setVerification('verifying');
     try {
-      const verified = await client.verifyReceipt(approvedReceipt.receiptCommitment);
-      if (operationEpoch.current === epoch) setVerification(verified ? 'verified' : 'invalid');
+      const verified = await client.verifyReceipt(receiptCommitment);
+      if (operationEpoch.current === epoch && verificationTarget.current === receiptCommitment) {
+        setVerification(verified ? 'verified' : 'invalid');
+      }
     } catch {
-      if (operationEpoch.current === epoch) setVerification('invalid');
+      if (operationEpoch.current === epoch && verificationTarget.current === receiptCommitment) {
+        setVerification('invalid');
+      }
     }
   };
 
@@ -205,6 +222,7 @@ function App() {
     advanceEpoch();
     setScreen('landing');
     setSelectedMode('landing');
+    setViewMode('owner');
     setClientError(null);
     setCapability(null);
     clearAuthorizationState();
@@ -213,6 +231,7 @@ function App() {
   const startOver = () => {
     advanceEpoch();
     setCapability(null);
+    setViewMode('owner');
     setClientError(null);
     setBusy(false);
     clearAuthorizationState();
@@ -243,23 +262,46 @@ function App() {
         ) : screen === 'policy' ? (
           <PolicyBuilder busy={busy} clientError={clientError} onCommit={commitCapability} onBack={returnHome} />
         ) : capability ? (
-          <CapabilityDashboard
-            capability={capability}
-            operationBusy={busy || authorizationBusy}
-            authorizationBusy={authorizationBusy}
-            clientError={clientError}
-            proofSteps={proofSteps}
-            activeRequestLabel={activeRequestLabel}
-            approvedReceipt={approvedReceipt}
-            rejection={rejection}
-            verification={verification}
-            canReplay={approvedReceipt !== null}
-            events={events}
-            onRevoke={revokeCapability}
-            onRunAuthorization={runAuthorization}
-            onVerifyReceipt={verifyReceipt}
-            onStartOver={startOver}
-          />
+          <div className="workspace-view-shell">
+            <div className="workspace-view-bar">
+              <div>
+                <span className="eyebrow">Disclosure boundary</span>
+                <p>Switching views replaces the rendered data source.</p>
+              </div>
+              <ViewModeToggle value={viewMode} onChange={setViewMode} disabled={false} />
+            </div>
+            {viewMode === 'owner' ? (
+              <CapabilityDashboard
+                capability={capability}
+                operationBusy={busy || authorizationBusy}
+                authorizationBusy={authorizationBusy}
+                clientError={clientError}
+                proofSteps={proofSteps}
+                activeRequestLabel={activeRequestLabel}
+                approvedReceipt={approvedReceipt}
+                rejection={rejection}
+                verification={verification}
+                canReplay={approvedReceipt !== null}
+                events={events}
+                onRevoke={revokeCapability}
+                onRunAuthorization={runAuthorization}
+                onVerifyReceipt={verifyReceipt}
+                onStartOver={startOver}
+              />
+            ) : (
+              <ObserverWorkspace
+                model={buildObserverWorkspaceModel({
+                  capability,
+                  proofSteps,
+                  receipt: approvedReceipt,
+                  rejection,
+                  verification,
+                  authorizationBusy,
+                })}
+                onVerifyReceipt={verifyReceipt}
+              />
+            )}
+          </div>
         ) : null}
       </main>
 

@@ -591,6 +591,276 @@ h1 {
   padding-block: 72px 96px;
 }
 
+.workspace-view-bar {
+  display: flex;
+  width: min(1280px, calc(100% - 48px));
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-inline: auto;
+  padding-top: 34px;
+}
+
+.workspace-view-bar p {
+  margin: 5px 0 0;
+  color: #9eabbd;
+  font-size: 0.74rem;
+}
+
+.workspace-view-shell > .workflow-section,
+.workspace-view-shell > .observer-workspace {
+  padding-top: 38px;
+}
+
+.view-mode-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  border: 1px solid #465a78;
+  border-radius: 13px;
+  background: #0a1626;
+  padding: 4px;
+}
+
+.view-mode-option {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #aab5c6;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+
+.view-mode-option[aria-pressed="true"] {
+  border-color: #806bee;
+  background: #1b2947;
+  color: #f2efff;
+  box-shadow: inset 0 0 0 1px rgb(128 107 238 / 0.18);
+}
+
+.view-mode-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.observer-workspace {
+  display: grid;
+  width: min(1280px, calc(100% - 48px));
+  min-height: 720px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-inline: auto;
+  padding-bottom: 96px;
+}
+
+.observer-introduction {
+  grid-column: 1 / -1;
+  max-width: 780px;
+  padding-bottom: 12px;
+}
+
+.observer-introduction h1 {
+  margin-block: 12px 16px;
+  font-size: clamp(2.8rem, 5.5vw, 5rem);
+  line-height: 0.98;
+}
+
+.observer-introduction p {
+  max-width: 650px;
+  margin: 0;
+  color: #aab5c6;
+  line-height: 1.7;
+}
+
+.observer-capability,
+.observer-proof,
+.observer-transcript,
+.observer-rejection,
+.observer-receipt {
+  min-width: 0;
+  border: 1px solid #34455f;
+  border-radius: var(--radius-lg);
+  background: #0d1a2b;
+  padding: clamp(22px, 3vw, 30px);
+}
+
+.observer-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-dark);
+}
+
+.observer-section-heading h2,
+.observer-transcript h2,
+.observer-rejection h2 {
+  margin: 6px 0 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+}
+
+.observer-fields {
+  margin: 0;
+}
+
+.observer-field {
+  display: grid;
+  grid-template-columns: minmax(125px, 0.45fr) minmax(0, 1fr);
+  gap: 14px;
+  padding-block: 15px;
+  border-bottom: 1px solid var(--border-dark);
+}
+
+.observer-field:last-child {
+  border-bottom: 0;
+}
+
+.observer-field dt {
+  color: #8f9caf;
+  font-size: 0.69rem;
+}
+
+.observer-field dd {
+  min-width: 0;
+  margin: 0;
+  color: #dce3ed;
+  font-size: 0.74rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.observer-field code {
+  color: #d8d1ff;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.69rem;
+}
+
+.observer-proof-status {
+  flex: 0 0 auto;
+  border: 1px solid #526785;
+  border-radius: 999px;
+  color: #d4dbe6;
+  padding: 7px 10px;
+  font-size: 0.67rem;
+  font-weight: 780;
+}
+
+.observer-proof-approved {
+  border-color: #328d70;
+  color: #8ee9ca;
+}
+
+.observer-proof-rejected {
+  border-color: #9f4458;
+  color: #ffadb4;
+}
+
+.observer-proof-running {
+  border-color: #806bee;
+  color: #c5bcff;
+}
+
+.observer-proof > p,
+.observer-transcript > p {
+  margin: 20px 0 0;
+  color: #8f9caf;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.observer-proof-steps,
+.observer-transcript ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observer-proof-steps li {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--border-dark);
+  color: #cbd4e1;
+  font-size: 0.74rem;
+}
+
+.observer-proof-steps strong {
+  color: #9c8eff;
+  font-size: 0.66rem;
+}
+
+.observer-transcript {
+  grid-column: 1 / -1;
+}
+
+.observer-transcript ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 18px;
+  counter-reset: observer-event;
+}
+
+.observer-transcript li {
+  border: 1px solid #3f536f;
+  border-radius: 999px;
+  background: #0a1626;
+  color: #b9c4d3;
+  padding: 8px 11px;
+  font-size: 0.7rem;
+}
+
+.observer-transcript li::before {
+  margin-right: 7px;
+  color: #9c8eff;
+  content: counter(observer-event, decimal-leading-zero);
+  counter-increment: observer-event;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.observer-rejection {
+  grid-column: 1 / -1;
+  border-color: #78404d;
+}
+
+.observer-rejection p {
+  margin: 18px 0 0;
+  border: 1px solid #78404d;
+  border-radius: 11px;
+  background: rgb(241 121 130 / 0.07);
+  color: #ffd1d5;
+  padding: 13px 15px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.observer-receipt {
+  grid-column: 1 / -1;
+}
+
+.observer-receipt .observer-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+}
+
+.observer-receipt .receipt-actions {
+  padding-top: 4px;
+}
+
+.observer-verification-status {
+  margin: 12px 0 0;
+  color: #aab5c6;
+  font-size: 0.71rem;
+}
+
 .workflow-heading {
   max-width: 760px;
   margin-bottom: 34px;
@@ -1764,7 +2034,8 @@ h1 {
 
   .builder-grid,
   .dashboard-grid,
-  .authorization-grid {
+  .authorization-grid,
+  .observer-workspace {
     grid-template-columns: 1fr;
   }
 
@@ -1783,7 +2054,9 @@ h1 {
   .hero,
   .steps,
   .architecture,
-  .workflow-section {
+  .workflow-section,
+  .workspace-view-bar,
+  .observer-workspace {
     width: min(100% - 32px, 1280px);
   }
 
@@ -1807,6 +2080,28 @@ h1 {
   .workflow-section {
     min-height: 0;
     padding-block: 54px 72px;
+  }
+
+  .workspace-view-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .view-mode-toggle {
+    width: 100%;
+  }
+
+  .view-mode-option {
+    flex: 1 1 0;
+  }
+
+  .observer-workspace {
+    min-height: 0;
+    padding-bottom: 72px;
+  }
+
+  .observer-introduction h1 {
+    font-size: clamp(2.6rem, 13vw, 3.8rem);
   }
 
   .workflow-heading h1 {
@@ -1869,6 +2164,16 @@ h1 {
   .receipt-field {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+
+  .observer-field,
+  .observer-receipt .observer-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .observer-section-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .dialog-backdrop {

@@ -28,6 +28,7 @@ export function AgentActivityConsole({
   onReset,
 }: AgentActivityConsoleProps) {
   const [inspectedRequest, setInspectedRequest] = useState<SpendRequest | null>(null);
+  const inspectionTrigger = useRef<HTMLButtonElement | null>(null);
   const disabled = busy || capabilityStatus === 'revoked';
 
   return (
@@ -59,7 +60,10 @@ export function AgentActivityConsole({
           disabled={disabled}
           actionLabel={busy ? 'Authorization running…' : 'Run approved request'}
           onRun={() => onRun('approved')}
-          onInspect={() => setInspectedRequest(CODE_SHIELD_REQUEST)}
+          onInspect={(trigger) => {
+            inspectionTrigger.current = trigger;
+            setInspectedRequest(CODE_SHIELD_REQUEST);
+          }}
         />
         <ServiceCard
           request={ALPHA_SIGNAL_REQUEST}
@@ -68,7 +72,10 @@ export function AgentActivityConsole({
           disabled={disabled}
           actionLabel={busy ? 'Authorization running…' : 'Run rejected request'}
           onRun={() => onRun('rejected')}
-          onInspect={() => setInspectedRequest(ALPHA_SIGNAL_REQUEST)}
+          onInspect={(trigger) => {
+            inspectionTrigger.current = trigger;
+            setInspectedRequest(ALPHA_SIGNAL_REQUEST);
+          }}
         />
       </div>
 
@@ -102,7 +109,11 @@ export function AgentActivityConsole({
       </div>
 
       {inspectedRequest ? (
-        <StructuredRequestDialog request={inspectedRequest} onClose={() => setInspectedRequest(null)} />
+        <StructuredRequestDialog
+          request={inspectedRequest}
+          returnFocusTo={inspectionTrigger.current}
+          onClose={() => setInspectedRequest(null)}
+        />
       ) : null}
     </section>
   );
@@ -123,7 +134,7 @@ function ServiceCard({
   disabled: boolean;
   actionLabel: string;
   onRun: () => Promise<void>;
-  onInspect: () => void;
+  onInspect: (trigger: HTMLButtonElement) => void;
 }) {
   return (
     <article className={`service-card service-card-${tone}`}>
@@ -148,7 +159,12 @@ function ServiceCard({
           <Play aria-hidden="true" size={16} />
           {actionLabel}
         </button>
-        <button className="structured-action" type="button" onClick={onInspect} disabled={disabled}>
+        <button
+          className="structured-action"
+          type="button"
+          onClick={(event) => onInspect(event.currentTarget)}
+          disabled={disabled}
+        >
           View structured request
         </button>
       </div>
@@ -156,14 +172,23 @@ function ServiceCard({
   );
 }
 
-function StructuredRequestDialog({ request, onClose }: { request: SpendRequest; onClose: () => void }) {
+function StructuredRequestDialog({
+  request,
+  returnFocusTo,
+  onClose,
+}: {
+  request: SpendRequest;
+  returnFocusTo: HTMLButtonElement | null;
+  onClose: () => void;
+}) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    previousFocus.current = returnFocusTo
+      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     closeRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -189,7 +214,7 @@ function StructuredRequestDialog({ request, onClose }: { request: SpendRequest; 
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus.current?.focus();
     };
-  }, [onClose]);
+  }, [onClose, returnFocusTo]);
 
   return (
     <div className="dialog-backdrop" role="presentation">
