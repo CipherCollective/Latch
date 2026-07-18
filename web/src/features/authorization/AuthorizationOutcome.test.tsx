@@ -40,7 +40,7 @@ describe('AuthorizationOutcome', () => {
   it('renders an approved demo receipt with an explicit fixture disclaimer and expandable destination details', () => {
     render(<AuthorizationOutcome receipt={demoReceipt} rejection={null} verification="verified" onVerify={vi.fn()} />);
 
-    expect(screen.getByText('Fixture authorization verified')).toBeVisible();
+    expect(screen.getByText('Fixture authorization accepted')).toBeVisible();
     expect(screen.getByText('Demo authorization fixture - not an on-chain transaction')).toBeVisible();
     expect(screen.getByText('Demo one-time destination fixture')).toBeVisible();
     expect(screen.getByText('What this demo receipt exposes')).toBeVisible();
