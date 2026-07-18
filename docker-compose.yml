@@ -8,10 +8,12 @@
 #   npm run local:proof
 # Tear down:
 #   npm run local:down
+#
+# Containers are project-namespaced by Compose (no fixed container_name) to avoid
+# collisions with other Midnight stacks on the same machine.
 
 services:
   proof-server:
-    container_name: midnight-proof-server
     image: midnightntwrk/proof-server:8.0.3
     command: ['midnight-proof-server', '-v']
     ports:
@@ -19,14 +21,13 @@ services:
     environment:
       RUST_BACKTRACE: 'full'
     healthcheck:
-      test: ['CMD-SHELL', 'echo > /dev/tcp/127.0.0.1/6300']
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 6300 || exit 1']
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 10s
 
   indexer:
-    container_name: midnight-indexer
     image: midnightntwrk/indexer-standalone:4.0.2
     ports:
       - '127.0.0.1:8088:8088'
@@ -50,7 +51,6 @@ services:
         condition: service_healthy
 
   node:
-    container_name: midnight-node
     image: midnightntwrk/midnight-node:0.22.5
     ports:
       - '127.0.0.1:9944:9944'

@@ -68,7 +68,7 @@ npm run local:down
 
 ```text
 npm run typecheck:api  → exit 0
-npm run test:api       → 10 tests passed
+npm run test:api       → 16 tests passed
 docker compose up -d   → midnight-node, midnight-indexer, midnight-proof-server all healthy
 ```
 
@@ -77,7 +77,7 @@ Notes:
 - Compose adapted from `midnightntwrk/midnight-local-dev` `standalone.yml` (official images/tags).
 - Indexer passwords / `APP__INFRA__SECRET` are **local-dev defaults only**.
 - Full undeployed txs still need genesis wallet funding / DUST registration (use midnight-local-dev CLI or document when real-client lands). Proof server alone is enough to start generating proofs once a client exists.
-- If an old container named `midnight-proof-server` already exists from another project, `docker rm -f midnight-proof-server midnight-node midnight-indexer` then `npm run local:up`.
+- Containers are Compose project-namespaced (no fixed `container_name`) to avoid collisions with other Midnight stacks.
 
 ## Not done yet (next pieces)
 
