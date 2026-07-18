@@ -46,3 +46,15 @@ This log records work performed in the Atharv/Codex workstream. It must not cont
 - **Evidence:** `docs/screenshots/demo-approved-desktop.png`, `docs/screenshots/demo-rejected-desktop.png`, and `docs/screenshots/demo-approved-mobile.png`.
 - **Accessibility:** Client-owned proof rows reserve vertical space and expose text/icon states, major results use polite live regions, the structured request dialog traps focus/Escape/restores focus, and actions remain native keyboard controls.
 - **Blockers:** None for the deterministic path. Proof and transaction behavior in real mode still require the verified core-client handoff.
+
+## 2026-07-18 - Public observer projection
+
+- **Branch:** `feat/atharv/observer-mode`
+- **Scope:** Owner/public view switch, strict observer DTO construction, validated opaque IDs and 32-byte commitments, aggregate-only proof state, generic public transcript, public capability dashboard, allowlisted receipt, verification, and clipboard serialization.
+- **Structural privacy:** Owner and observer render different React subtrees. `ObserverWorkspace` accepts only `ObserverWorkspaceModel`; it never receives owner capability state, service/request objects, raw proof details, destination data, transaction metadata, private rejection codes, or owner event strings.
+- **Side-channel controls:** Observer mode never renders client proof-step labels, positions, failure locations, safe-detail text, or per-step timing. An in-flight request takes precedence over receipt history, and every rejection reason produces the same aggregate model and exact public message.
+- **Hostile input controls:** Public capability IDs and commitments are format-validated. Recursive tests inject private values into banned fields and nominally public leaves, proving malformed values fail closed rather than crossing the observer/clipboard boundary.
+- **Validation:** `npm run typecheck`, `npm run test:run` (68 tests), `npm run build`, and `git diff --check` passed. App-level tests unmount an open owner dialog, switch during delayed proof callbacks, inspect MutationObserver snapshots, verify public clipboard keys, and cover approval, policy rejection, replay, verification, and revocation.
+- **Browser evidence:** `docs/screenshots/observer-approved-desktop.png`, `docs/screenshots/observer-rejected-desktop.png`, and `docs/screenshots/observer-approved-mobile.png`. The full browser path produced zero application console errors and zero horizontal overflow at 320px.
+- **Truthfulness boundary:** This toggle is a DOM/accessibility/clipboard projection, not user authentication or same-origin access control. The owner state remains in the same application session and Demo fixtures ship in the frontend bundle. A separately accessible public observer requires an independently authenticated/unauthenticated route and public-only data source after core handoff.
+- **Core caveat:** Demo SHA-256 fixtures are deterministic and recomputable from known inputs. Real confidentiality depends on verified blinded commitments and core/ledger disclosure facts marked `[CORE FACT REQUIRED]`.

@@ -141,6 +141,7 @@ describe('MockMoatClient deterministic authorization', () => {
 
     expect(replay).toMatchObject({ status: 'rejected', privateReason: 'REPLAY' });
     expect(replay.proofSteps.find((step) => step.id === 'check-nullifier')?.status).toBe('failed');
+    expect(replay.proofSteps.find((step) => step.id === 'derive-destination')?.status).toBe('waiting');
     expect(replay.proofSteps.find((step) => step.id === 'evaluate-constraints')?.status).toBe('waiting');
     await expect(client.getCapability(created.capabilityId)).resolves.toEqual(afterApproval);
   });

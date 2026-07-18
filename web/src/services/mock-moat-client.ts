@@ -245,13 +245,6 @@ export class MockMoatClient implements MoatClient {
       return reject('UNKNOWN');
     }
 
-    const oneTimeDestination = await this.generateOneTimeDestination(
-      input.request.merchant,
-      input.request.requestNonce,
-    );
-    await transition('derive-destination', 'passed', PASSED_DETAILS['derive-destination']);
-    await transition('open-policy', 'passed', PASSED_DETAILS['open-policy']);
-
     const nullifier = await fixtureHash('nullifier', {
       capabilityId: input.capabilityId,
       requestNonce: input.request.requestNonce,
@@ -263,6 +256,13 @@ export class MockMoatClient implements MoatClient {
       await transition('check-nullifier', 'failed', 'Authorization could not continue.');
       return reject('REPLAY');
     }
+
+    const oneTimeDestination = await this.generateOneTimeDestination(
+      input.request.merchant,
+      input.request.requestNonce,
+    );
+    await transition('derive-destination', 'passed', PASSED_DETAILS['derive-destination']);
+    await transition('open-policy', 'passed', PASSED_DETAILS['open-policy']);
 
     const rejection = this.evaluatePolicy(this.capability, input.request);
     if (rejection) {
