@@ -98,7 +98,7 @@ describe('observer-mode integration privacy boundary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run approved request' }));
     fireEvent.click(screen.getByRole('button', { name: 'Public observer view' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Public observer' })).toBeVisible();
-    expect(screen.getByText('Proof in progress')).toBeVisible();
+    expect(screen.getByText('Fixture evaluation in progress')).toBeVisible();
 
     const snapshots: string[] = [];
     const observer = new MutationObserver(() => {
@@ -112,7 +112,7 @@ describe('observer-mode integration privacy boundary', () => {
     });
 
     await screen.findByRole('heading', { name: 'Authorization receipt' });
-    await waitFor(() => expect(screen.getAllByText('Approved').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText('Fixture approved').length).toBeGreaterThan(0));
     observer.disconnect();
     snapshots.push(document.documentElement.outerHTML);
 
@@ -166,7 +166,7 @@ describe('observer-mode integration privacy boundary', () => {
 
     const rejection = await screen.findByRole('alert');
     expect(rejection).toHaveTextContent(PUBLIC_REJECTION_MESSAGE);
-    expect(screen.getAllByText('Rejected').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Fixture rejected').length).toBeGreaterThan(0);
     expect(document.documentElement.outerHTML).not.toContain('per-transaction limit');
     expect(document.documentElement.outerHTML).not.toContain('Evaluating hidden spending constraints');
     expect(document.documentElement.outerHTML).not.toContain('privateReason');

@@ -25,17 +25,17 @@ describe('ProofProgress', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Authorization rejected.');
   });
 
-  it('does not manufacture proof rows when the client supplies none', () => {
+  it('does not manufacture fixture rows when the client supplies none', () => {
     render(<ProofProgress steps={[]} busy={false} />);
 
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
-    expect(screen.getByText(/proof steps will appear when the authorization client reports them/i)).toBeVisible();
+    expect(screen.getByText(/fixture steps will appear when the demo client reports them/i)).toBeVisible();
   });
 
   it('announces completion only after all supplied steps pass and work is no longer busy', () => {
     const completeSteps: ProofStep[] = steps.slice(0, 2).map((step) => ({ ...step, status: 'passed' }));
     render(<ProofProgress steps={completeSteps} busy={false} />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Authorization proof completed.');
+    expect(screen.getByRole('status')).toHaveTextContent('Demo authorization fixture completed.');
   });
 });

@@ -5,13 +5,13 @@ import type { ProofStep, SpendRequest } from '../types/domain';
 import { MockMoatClient } from './mock-moat-client';
 
 const EXPECTED_STEP_LABELS = [
-  'Preparing private witness',
-  'Deriving one-time destination',
-  'Opening policy commitment',
-  'Evaluating hidden spending constraints',
-  'Checking nullifier',
-  'Modeling proof submission (demo fixture)',
-  'Receipt committed',
+  'Preparing local fixture inputs',
+  'Deriving demo destination fixture',
+  'Recomputing policy fixture commitment',
+  'Evaluating local fixture rules',
+  'Checking demo nullifier fixture',
+  'Simulating proof submission locally',
+  'Storing demo receipt fixture',
 ];
 
 async function createDefaultClient(options?: { stepDelayMs?: number }) {

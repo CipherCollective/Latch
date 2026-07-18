@@ -11,10 +11,10 @@ interface ObserverWorkspaceProps {
 }
 
 const proofStatusCopy: Record<ObserverWorkspaceModel['proof']['overall'], string> = {
-  idle: 'No proof submitted',
-  running: 'Proof in progress',
-  approved: 'Approved',
-  rejected: 'Rejected',
+  idle: 'No fixture evaluation',
+  running: 'Fixture evaluation in progress',
+  approved: 'Fixture approved',
+  rejected: 'Fixture rejected',
 };
 
 const verificationStatusCopy: Record<
@@ -98,8 +98,8 @@ export function ObserverWorkspace({ model, onVerifyReceipt }: ObserverWorkspaceP
       <section className="observer-proof" aria-labelledby="observer-proof-title" aria-busy={proof.overall === 'running'}>
         <div className="observer-section-heading">
           <div>
-            <span className="eyebrow">Safe proof projection</span>
-            <h2 id="observer-proof-title">Proof status</h2>
+            <span className="eyebrow">Public fixture projection</span>
+            <h2 id="observer-proof-title">Demo evaluation status</h2>
           </div>
           <span className={`observer-proof-status observer-proof-${proof.overall}`}>
             {proofStatusCopy[proof.overall]}
@@ -109,7 +109,7 @@ export function ObserverWorkspace({ model, onVerifyReceipt }: ObserverWorkspaceP
         <p>Per-step labels, timing, and failure locations are not included in this projection.</p>
 
         <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-          Overall proof status: {proofStatusCopy[proof.overall]}.
+          Overall demo evaluation status: {proofStatusCopy[proof.overall]}.
         </p>
       </section>
 
@@ -159,7 +159,7 @@ export function ObserverWorkspace({ model, onVerifyReceipt }: ObserverWorkspaceP
               <dd>{receipt.capabilityStatus === 'active' ? 'Active' : 'Revoked'}</dd>
             </div>
             <div className="observer-field">
-              <dt>Proof status</dt>
+              <dt>Demo evaluation status</dt>
               <dd>{proofStatusCopy[receipt.proofStatus]}</dd>
             </div>
             <div className="observer-field">

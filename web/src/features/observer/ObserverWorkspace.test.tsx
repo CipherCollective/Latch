@@ -63,7 +63,7 @@ describe('ObserverWorkspace', () => {
     expect(document.body).not.toHaveTextContent('Authorization inputs prepared');
     expect(document.body).not.toHaveTextContent('Receipt commitment recorded');
     expect(screen.getByText(/per-step labels, timing, and failure locations are not included/i)).toBeVisible();
-    expect(document.body).toHaveTextContent('Overall proof status: Approved.');
+    expect(document.body).toHaveTextContent('Overall demo evaluation status: Fixture approved.');
   });
 
   it('renders only the exact public rejection and no injected values', () => {

@@ -197,7 +197,7 @@ export function CapabilityDashboard({
 
       <AgentActivityConsole
         capabilityStatus={capability.status}
-        busy={authorizationBusy}
+        busy={operationBusy}
         canReplay={canReplay}
         events={events}
         onRun={onRunAuthorization}

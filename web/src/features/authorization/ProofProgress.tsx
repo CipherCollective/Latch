@@ -35,11 +35,11 @@ function majorState(steps: ProofStep[], busy: boolean): string {
   }
 
   if (steps.length > 0 && steps.every((step) => step.status === 'passed') && !busy) {
-    return 'Authorization proof completed.';
+    return 'Demo authorization fixture completed.';
   }
 
   if (busy || steps.some((step) => step.status === 'running')) {
-    return steps.length === 0 ? 'Authorization started.' : 'Authorization proof in progress.';
+    return steps.length === 0 ? 'Demo authorization started.' : 'Demo authorization fixture in progress.';
   }
 
   return '';
@@ -52,7 +52,7 @@ export function ProofProgress({ steps, busy, requestLabel }: ProofProgressProps)
     <section className="proof-progress" aria-labelledby="proof-progress-title" aria-busy={busy}>
       <div className="proof-progress-heading">
         <div>
-          <span className="eyebrow">Private proof</span>
+          <span className="eyebrow">Local authorization fixture</span>
           <h2 id="proof-progress-title">Authorization progress</h2>
         </div>
         {requestLabel ? <span className="proof-request-label">{requestLabel}</span> : null}
@@ -79,7 +79,7 @@ export function ProofProgress({ steps, busy, requestLabel }: ProofProgressProps)
           ))}
         </ol>
       ) : (
-        <p className="proof-empty-state">Proof steps will appear when the authorization client reports them.</p>
+        <p className="proof-empty-state">Fixture steps will appear when the demo client reports them.</p>
       )}
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">

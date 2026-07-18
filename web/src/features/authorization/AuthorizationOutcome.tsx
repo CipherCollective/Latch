@@ -114,7 +114,7 @@ function ApprovedOutcome({
         <div>
           <span className="verified-authorization-badge">
             <CheckCircle2 aria-hidden="true" size={16} />
-            Verified authorization
+            {isDemoFixture ? 'Fixture authorization verified' : 'Verified authorization'}
           </span>
           <h2 id="authorization-approved-title">Private gate passed</h2>
         </div>
@@ -151,7 +151,7 @@ function ApprovedOutcome({
 
       <div className="receipt-privacy-comparison">
         <div>
-          <strong>What the chain learned</strong>
+          <strong>{isDemoFixture ? 'What this demo receipt exposes' : 'What the chain learned'}</strong>
           <p>
             {isDemoFixture
               ? 'A deterministic authorization fixture was accepted and a demo nullifier was consumed.'
@@ -159,8 +159,12 @@ function ApprovedOutcome({
           </p>
         </div>
         <div>
-          <strong>What stayed private</strong>
-          <p>Not included in this receipt: policy values, purchase details, agent identity, or a private witness.</p>
+          <strong>{isDemoFixture ? 'What this demo receipt omits' : 'What stayed private'}</strong>
+          <p>
+            {isDemoFixture
+              ? 'The local model does not place policy values, purchase details, agent identity, or witness data in this demo receipt.'
+              : 'Not included in this receipt: policy values, purchase details, agent identity, or a private witness.'}
+          </p>
         </div>
       </div>
 

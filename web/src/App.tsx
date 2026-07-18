@@ -188,7 +188,7 @@ function App() {
           if (step.id === 'derive-destination' && step.status === 'passed') {
             addEvent(`${runKey}-destination`, 'One-time destination derived.', epoch);
           }
-          if (step.status === 'running') addEvent(`${runKey}-proof`, 'Proof/client steps updated.', epoch);
+          if (step.status === 'running') addEvent(`${runKey}-proof`, 'Demo fixture/client steps updated.', epoch);
         },
       });
       if (operationEpoch.current !== epoch) return;
@@ -340,6 +340,7 @@ function App() {
         <BrandMark />
         <p>Private spending capabilities for autonomous agents.</p>
         <span>Built for the Midnight Hackathon · DeFi</span>
+        <a href={`${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.txt`}>Third-party notices</a>
       </footer>
     </div>
   );
