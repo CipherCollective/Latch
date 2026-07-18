@@ -1,0 +1,87 @@
+name: Release gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feat/atharv/**"
+      - "fix/atharv/**"
+      - "ci/atharv/**"
+      - "deploy/atharv/**"
+      - "release/atharv/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Type, test, build, and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the reviewed commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Use the supported Node release
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install exactly from the lockfile
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint source controls
+        run: npm run lint
+
+      - name: Run all tests
+        run: npm run test:run
+
+      - name: Build the production bundle
+        run: npm run build
+
+      - name: Audit every dependency severity
+        run: npm audit --audit-level=low
+
+      - name: Validate the installed dependency tree
+        run: npm ls --all
+
+      - name: Reject high-confidence credential material
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns=(
+            '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'
+            'AKIA[0-9A-Z]{16}'
+            'gh[pousr]_[A-Za-z0-9]{30,}'
+            'github_pat_[A-Za-z0-9_]{50,}'
+            'sk-[A-Za-z0-9]{32,}'
+          )
+
+          for pattern in "${patterns[@]}"; do
+            if git grep -I -n -E -e "$pattern" -- . \
+              ':!.github/workflows/ci.yml'; then
+              echo "Potential credential material matched a guarded pattern." >&2
+              exit 1
+            fi
+          done
+
+      - name: Confirm checks did not alter tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --short --untracked-files=no)"
