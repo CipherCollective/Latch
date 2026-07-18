@@ -1,15 +1,32 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowDown, CircleCheck, EyeOff, LockKeyhole, Network } from 'lucide-react';
 import { BrandMark } from './components/layout/BrandMark';
 import { ModeChooser } from './components/layout/ModeChooser';
 import { ProtocolSteps } from './components/layout/ProtocolSteps';
 import { CapabilityDashboard } from './features/capability/CapabilityDashboard';
 import { PolicyBuilder } from './features/capability/PolicyBuilder';
+import { ALPHA_SIGNAL_REQUEST, CODE_SHIELD_REQUEST } from './demo/requests';
+import type { ActivityEvent, DemoRequestKind } from './features/authorization/AgentActivityConsole';
 import { useMoatClient } from './services/moat-provider';
-import type { CapabilityOwnerState, CreateCapabilityInput } from './types/domain';
+import type {
+  AuthorizationReceipt,
+  AuthorizationResult,
+  CapabilityOwnerState,
+  CreateCapabilityInput,
+  ProofStep,
+} from './types/domain';
 
 type SelectedMode = 'landing' | 'demo' | 'wallet';
 type Screen = 'landing' | 'policy' | 'dashboard';
+type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
+type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
+
+const PROOF_STATUS_RANK: Record<ProofStep['status'], number> = {
+  waiting: 0,
+  running: 1,
+  passed: 2,
+  failed: 2,
+};
 
 function App() {
   const client = useMoatClient();
@@ -17,57 +34,188 @@ function App() {
   const [screen, setScreen] = useState<Screen>('landing');
   const [capability, setCapability] = useState<CapabilityOwnerState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [authorizationBusy, setAuthorizationBusy] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [proofSteps, setProofSteps] = useState<ProofStep[]>([]);
+  const [approvedReceipt, setApprovedReceipt] = useState<AuthorizationReceipt | null>(null);
+  const [rejection, setRejection] = useState<RejectedAuthorization | null>(null);
+  const [verification, setVerification] = useState<VerificationState>('idle');
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [activeRequestLabel, setActiveRequestLabel] = useState<string>();
+  const operationEpoch = useRef(0);
+  const lifecycleInFlight = useRef(false);
+  const authorizationInFlight = useRef(false);
+  const eventCounter = useRef(0);
+  const eventKeys = useRef(new Set<string>());
+
+  const advanceEpoch = () => {
+    operationEpoch.current += 1;
+    lifecycleInFlight.current = false;
+    authorizationInFlight.current = false;
+    return operationEpoch.current;
+  };
+
+  const clearAuthorizationState = () => {
+    setAuthorizationBusy(false);
+    setProofSteps([]);
+    setApprovedReceipt(null);
+    setRejection(null);
+    setVerification('idle');
+    setEvents([]);
+    setActiveRequestLabel(undefined);
+    eventKeys.current.clear();
+  };
+
+  const addEvent = (key: string, label: string, epoch: number) => {
+    if (operationEpoch.current !== epoch || eventKeys.current.has(key)) return;
+    eventKeys.current.add(key);
+    eventCounter.current += 1;
+    const eventId = `event-${eventCounter.current}`;
+    setEvents((current) => [...current, { id: eventId, label }]);
+  };
 
   const enterDemo = () => {
+    advanceEpoch();
     setSelectedMode('demo');
     setClientError(null);
+    setCapability(null);
+    clearAuthorizationState();
     setScreen('policy');
   };
 
   const chooseWallet = () => {
+    advanceEpoch();
     setSelectedMode('wallet');
     setClientError(null);
+    clearAuthorizationState();
   };
 
   const commitCapability = async (input: CreateCapabilityInput) => {
-    if (busy) return;
+    if (lifecycleInFlight.current) return;
+    lifecycleInFlight.current = true;
+    const epoch = operationEpoch.current;
     setBusy(true);
     setClientError(null);
     try {
       const result = await client.createCapability(input);
       const state = await client.getCapability(result.capabilityId);
+      if (operationEpoch.current !== epoch) return;
       if (!('policy' in state)) throw new Error('Owner state was unavailable.');
       setCapability(state);
+      clearAuthorizationState();
       setScreen('dashboard');
     } catch {
-      setClientError('The demo capability could not be created. Your values were preserved; try again.');
+      if (operationEpoch.current === epoch) {
+        setClientError('The demo capability could not be created. Your values were preserved; try again.');
+      }
     } finally {
-      setBusy(false);
+      if (operationEpoch.current === epoch) {
+        lifecycleInFlight.current = false;
+        setBusy(false);
+      }
     }
   };
 
   const revokeCapability = async () => {
-    if (!capability || busy) return;
+    if (!capability || lifecycleInFlight.current || authorizationInFlight.current) return;
+    lifecycleInFlight.current = true;
+    const epoch = operationEpoch.current;
     setBusy(true);
+    setClientError(null);
     try {
       await client.revokeCapability(capability.capabilityId);
       const state = await client.getCapability(capability.capabilityId);
-      if ('policy' in state) setCapability(state);
+      if (operationEpoch.current === epoch && 'policy' in state) setCapability(state);
+    } catch {
+      if (operationEpoch.current === epoch) setClientError('Revocation could not be completed. Try again.');
     } finally {
-      setBusy(false);
+      if (operationEpoch.current === epoch) {
+        lifecycleInFlight.current = false;
+        setBusy(false);
+      }
+    }
+  };
+
+  const runAuthorization = async (kind: DemoRequestKind) => {
+    if (!capability || capability.status === 'revoked' || authorizationInFlight.current || lifecycleInFlight.current) {
+      return;
+    }
+    authorizationInFlight.current = true;
+    const epoch = operationEpoch.current;
+    const request = kind === 'rejected' ? ALPHA_SIGNAL_REQUEST : CODE_SHIELD_REQUEST;
+    const runKey = `${kind}-${eventCounter.current + 1}`;
+    setAuthorizationBusy(true);
+    setClientError(null);
+    setRejection(null);
+    setProofSteps([]);
+    setActiveRequestLabel(kind === 'replay' ? 'CodeShield replay' : request.merchant.displayName);
+    addEvent(`${runKey}-created`, kind === 'replay' ? 'Agent replayed the prior authorization.' : 'Agent created request.', epoch);
+    addEvent(`${runKey}-requested`, 'Authorization requested from the private gate.', epoch);
+
+    try {
+      const result = await client.authorizeSpend({
+        capabilityId: capability.capabilityId,
+        request,
+        onProofStep: (step) => {
+          if (operationEpoch.current !== epoch) return;
+          setProofSteps((current) => upsertProofStep(current, step));
+          if (step.id === 'derive-destination' && step.status === 'passed') {
+            addEvent(`${runKey}-destination`, 'One-time destination derived.', epoch);
+          }
+          if (step.status === 'running') addEvent(`${runKey}-proof`, 'Proof/client steps updated.', epoch);
+        },
+      });
+      if (operationEpoch.current !== epoch) return;
+      setProofSteps(result.proofSteps);
+      addEvent(`${runKey}-result`, result.status === 'approved' ? 'Approved result received.' : 'Rejected result received.', epoch);
+      if (result.status === 'approved') {
+        setApprovedReceipt(result.receipt);
+        setRejection(null);
+        setVerification('idle');
+      } else {
+        setRejection(result);
+      }
+      const state = await client.getCapability(capability.capabilityId);
+      if (operationEpoch.current === epoch && 'policy' in state) setCapability(state);
+    } catch {
+      if (operationEpoch.current === epoch) {
+        setClientError('Authorization could not finish. No approval or transaction is being claimed.');
+      }
+    } finally {
+      if (operationEpoch.current === epoch) {
+        authorizationInFlight.current = false;
+        setAuthorizationBusy(false);
+      }
+    }
+  };
+
+  const verifyReceipt = async () => {
+    if (!approvedReceipt || verification === 'verifying') return;
+    const epoch = operationEpoch.current;
+    setVerification('verifying');
+    try {
+      const verified = await client.verifyReceipt(approvedReceipt.receiptCommitment);
+      if (operationEpoch.current === epoch) setVerification(verified ? 'verified' : 'invalid');
+    } catch {
+      if (operationEpoch.current === epoch) setVerification('invalid');
     }
   };
 
   const returnHome = () => {
+    advanceEpoch();
     setScreen('landing');
     setSelectedMode('landing');
     setClientError(null);
+    setCapability(null);
+    clearAuthorizationState();
   };
 
   const startOver = () => {
+    advanceEpoch();
     setCapability(null);
     setClientError(null);
+    setBusy(false);
+    clearAuthorizationState();
     setScreen('policy');
   };
 
@@ -97,8 +245,19 @@ function App() {
         ) : capability ? (
           <CapabilityDashboard
             capability={capability}
-            revoking={busy}
+            operationBusy={busy || authorizationBusy}
+            authorizationBusy={authorizationBusy}
+            clientError={clientError}
+            proofSteps={proofSteps}
+            activeRequestLabel={activeRequestLabel}
+            approvedReceipt={approvedReceipt}
+            rejection={rejection}
+            verification={verification}
+            canReplay={approvedReceipt !== null}
+            events={events}
             onRevoke={revokeCapability}
+            onRunAuthorization={runAuthorization}
+            onVerifyReceipt={verifyReceipt}
             onStartOver={startOver}
           />
         ) : null}
@@ -195,3 +354,14 @@ function Landing({
 }
 
 export default App;
+
+function upsertProofStep(current: ProofStep[], next: ProofStep): ProofStep[] {
+  const index = current.findIndex((step) => step.id === next.id);
+  if (index === -1) return [...current, next];
+  const existing = current[index];
+  if (!existing || PROOF_STATUS_RANK[next.status] < PROOF_STATUS_RANK[existing.status]) return current;
+  if ((existing.status === 'passed' || existing.status === 'failed') && existing.status !== next.status) return current;
+  const updated = [...current];
+  updated[index] = next;
+  return updated;
+}
