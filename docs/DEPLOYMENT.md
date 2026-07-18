@@ -70,12 +70,14 @@ SHA-256 values are lowercase hexadecimal over the exact committed bytes.
 | `docs/assets/index-BT-wR-fx.css` | 32,714 | `078a774b6d2aed68be0b3113c8745f5292420800537bc7ab4cc5f546862150e4` |
 | `docs/assets/index-CSAbsmbg.js` | 291,898 | `d57a95fe0663a506bf57b1fd829435834e47bf64a43307c7802870813a0d951e` |
 | `docs/latch-mark.svg` | 447 | `ace7249d68ab2d51a83897ac6fdd26cea6ac8f8a0128b5c060991ad9935eb1a9` |
-| `docs/THIRD_PARTY_NOTICES.txt` | 18,427 | `866d4354e7b850a4594e9cfe5e675e44e5082e5f99c25c242fa2578b65123f94` |
+| `docs/THIRD_PARTY_NOTICES.txt` | 18,074 | `9bb1763e0847029c4cbdbc9d01e13596456cb6eacbfe96f90b654acb9031a89f` |
 | `docs/.nojekyll` | 48 | `95db1598a91b84c16ce818427289c2c3d9e5d4e363ae997af53cf9c000734a63` |
 
 An isolated rebuild under Node.js `22.13.0` reproduced the JavaScript, CSS,
 SVG, notice file, and formatted HTML byte-for-byte. The HTML comparison applied
-the same pinned Prettier `3.6.2` normalization used for the committed file.
+the same pinned Prettier `3.6.2` normalization used for the committed file. The
+manifest was computed from a clean remote checkout, after Git applied the
+committed LF policy, rather than from a pre-index Windows working copy.
 
 ## Local hosted-artifact verification
 

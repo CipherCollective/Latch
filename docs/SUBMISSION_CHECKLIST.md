@@ -59,15 +59,15 @@ npm audit --audit-level=low
 git diff --check
 ```
 
-- [ ] `npm ci` succeeds using the committed lockfile.
-- [ ] TypeScript reports no errors.
-- [ ] Every Vitest file and test passes.
-- [ ] Vite produces `web/dist/index.html` and hashed assets.
-- [ ] The dependency audit reports no known vulnerabilities.
-- [ ] The verified checkout remains clean after checks.
-- [ ] Axe reports no WCAG A/AA violations on all release-critical states.
-- [ ] Browser automation reports no application console errors.
-- [ ] Browser automation reports no horizontal overflow at 320px.
+- [x] `npm ci` succeeds using the committed lockfile.
+- [x] TypeScript reports no errors.
+- [x] Every Vitest file and test passes.
+- [x] Vite produces `web/dist/index.html` and hashed assets.
+- [x] The dependency audit reports no known vulnerabilities.
+- [x] The verified checkout remains clean after checks.
+- [x] Axe reports no WCAG A/AA violations on all release-critical states.
+- [x] Browser automation reports no application console errors.
+- [x] Browser automation reports no horizontal overflow at 320px.
 
 Record final command output and commit identifiers in
 [`BUILD_LOG.md`](./BUILD_LOG.md); do not paste credentials, wallet payloads, or
@@ -78,42 +78,42 @@ private policy data.
 Start with a clean refresh and verify the `Demo mode` badge remains visible on
 every workflow screen.
 
-- [ ] The default policy shows limit `20`, budget `50`, uses `3`, and category
+- [x] The default policy shows limit `20`, budget `50`, uses `3`, and category
   `developer-tools`.
-- [ ] Capability creation is labeled as a deterministic fixture.
-- [ ] CodeShield requests `12` and approves.
-- [ ] Uses change from `3` to `2` and remaining budget changes from `50` to
+- [x] Capability creation is labeled as a deterministic fixture.
+- [x] CodeShield requests `12` and approves.
+- [x] Uses change from `3` to `2` and remaining budget changes from `50` to
   `38` exactly.
-- [ ] The receipt and destination are explicitly labeled as fixtures.
-- [ ] Fixture receipt verification passes.
-- [ ] AlphaSignal requests `30` in `trading-data` and rejects.
-- [ ] Rejection leaves budget, uses, receipts, and nullifiers unchanged.
-- [ ] Replaying CodeShield produces no second receipt and no state mutation.
-- [ ] Public Observer shows the same generic message for policy rejection and
+- [x] The receipt and destination are explicitly labeled as fixtures.
+- [x] Fixture receipt verification passes.
+- [x] AlphaSignal requests `30` in `trading-data` and rejects.
+- [x] Rejection leaves budget, uses, receipts, and nullifiers unchanged.
+- [x] Replaying CodeShield produces no second receipt and no state mutation.
+- [x] Public Observer shows the same generic message for policy rejection and
   replay rejection.
-- [ ] Public Observer DOM and copied JSON contain no owner policy, request,
+- [x] Public Observer DOM and copied JSON contain no owner policy, request,
   merchant, destination, private reason, wallet, or witness values.
-- [ ] Revocation requires confirmation and blocks later authorization.
-- [ ] Reset and clean refresh restore the deterministic initial state.
+- [x] Revocation requires confirmation and blocks later authorization.
+- [x] Reset and clean refresh restore the deterministic initial state.
 
 ## Wallet boundary smoke test
 
-- [ ] No-wallet state makes no connection claim and preserves Demo access.
-- [ ] An incompatible connector cannot be selected.
-- [ ] Multiple compatible connectors require an explicit radio selection.
-- [ ] A pending wallet request keeps stable layout and remains cancellable via
+- [x] No-wallet state makes no connection claim and preserves Demo access.
+- [x] An incompatible connector cannot be selected.
+- [x] Multiple compatible connectors require an explicit radio selection.
+- [x] A pending wallet request keeps stable layout and remains cancellable via
   Back or Demo.
-- [ ] Declined, inaccessible, wrong-network, and stale-session states use fixed
+- [x] Declined, inaccessible, wrong-network, and stale-session states use fixed
   public copy with retry paths.
-- [ ] `Preprod · Wallet connected` appears only after status, configuration,
+- [x] `Preprod · Wallet connected` appears only after status, configuration,
   and post-configuration status agree.
-- [ ] Returning focus after a disconnect/network switch clears the connected
+- [x] Returning focus after a disconnect/network switch clears the connected
   badge.
-- [ ] No address, balance, key, history, signing, transfer, or transaction
+- [x] No address, balance, key, history, signing, transfer, or transaction
   permission is requested.
-- [ ] Wallet configuration, endpoints, raw reasons, and provider objects never
+- [x] Wallet configuration, endpoints, raw reasons, and provider objects never
   appear in DOM, clipboard, storage, or logs.
-- [ ] No real capability or transaction action is exposed without the verified
+- [x] No real capability or transaction action is exposed without the verified
   core factory.
 
 ## Public deployment gate
