@@ -124,3 +124,15 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Open facts:** Real core evidence remains `[CORE FACT REQUIRED]`; public deployment smoke remains `[DEPLOYMENT FACT REQUIRED]`; final video, Devpost/team fields, human approvals, merges, and submission remain `[SUBMISSION FACT REQUIRED]`.
 - **PR handoff:** Pending final documentation verification; the resulting URL will be appended without rewriting this event.
 - **PR URL appended after verification:** [#9 - `[STACK 9] Publish audited release documentation`](https://github.com/CipherCollective/Latch/pull/9), targeting `ci/atharv/release-gates`; no self-merge.
+
+## 2026-07-18 - Reproducible deployment artifact
+
+- **Branch:** `deploy/atharv/public-demo`.
+- **Source:** Built from documentation stack tip `37bf7c1b3929835fab591c9da73672acb80c13cf`; the initial static artifact commit is `69b8bddce7b8a839889d9f10872ec0dfae43f6d6`.
+- **Scope:** Production-base Vite output under `docs/`, hashed JavaScript and CSS, icon, complete runtime third-party notices, `.nojekyll` publisher instruction, exact artifact manifest, and deployment runbook.
+- **Reproducibility:** An isolated build under exact Node.js `22.12.0` reproduced every shipped asset byte-for-byte after applying the committed Prettier `3.6.2` HTML normalization. No environment variable or secret is required for Demo mode.
+- **Local hosted-artifact validation:** Served the committed output at `/Latch/`; exercised landing, deterministic capability creation, approval, receipt verification, policy rejection, replay rejection, owner/observer projection, revocation, post-revocation disablement, new capability, reset, missing wallet, and a compatible Preprod connector fixture. Desktop `1440x900`, mobile `390x844`, and narrow `320x720` passed with zero application console errors, request failures, HTTP error responses, Axe A/AA violations, or horizontal overflow. `THIRD_PARTY_NOTICES.txt` returned `200`.
+- **Hosting blocker:** GitHub's Pages create-site API returned HTTP `422` with `Your current plan does not support GitHub Pages for this repository.` The repository is private under an organization and no authorized alternative-host credential is available. Repository visibility, organization billing, and external project creation were not changed implicitly.
+- **Truth boundary:** The locally hosted artifact is verified, but no public URL or unauthenticated public-origin smoke is claimed. `docs/DEPLOYMENT.md` retains `[DEPLOYMENT FACT REQUIRED]` and lists the authorized unblock paths.
+- **Live PR update:** PR #7 was merged into `feat/atharv/wallet-adapter` by its author after the documentation snapshot. It joins PR #2 as a recorded no-self-merge process exception; PRs #8 and #9 remained open at this check.
+- **PR handoff:** Pending final deployment-record verification; the resulting URL will be appended without rewriting this event.
