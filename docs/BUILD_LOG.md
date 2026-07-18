@@ -160,3 +160,4 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Artifact refresh:** Production-base output was regenerated at `65a9195cd2e1f514515c3c0480603c45c05ca7c7`. The stale JavaScript chunk was removed, the manifest was updated, and the exact artifact passed the full browser lifecycle again with zero console errors, failed requests, HTTP error responses, Axe A/AA violations, or narrow overflow; third-party notices returned `200`.
 - **Scope:** Wallet focus-revalidation lifecycle, two regression assertions, and generated release artifact only; no dependency, `api/**`, or `contract/**` change.
 - **PR handoff:** Pending final evidence verification; the resulting URL will be appended without rewriting this event.
+- **PR URL appended after verification:** [#12 - `[STACK 12] Stabilize wallet focus revalidation`](https://github.com/CipherCollective/Latch/pull/12), targeting `fix/atharv/node-runtime`; no self-merge.

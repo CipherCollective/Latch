@@ -12,7 +12,7 @@ not currently available, so this repository does **not** claim a live demo URL.
 | Initial artifact review | [#10 - Prepare verified deployment bundle](https://github.com/CipherCollective/Latch/pull/10) |
 | Current application source | `fix/atharv/wallet-focus-stability` at `53a8a58eb70becb6fc3cc3b72d39a874dc01ec82` |
 | Current static artifact commit | `65a9195cd2e1f514515c3c0480603c45c05ca7c7` |
-| Current refresh review | `[PULL REQUEST PENDING]` |
+| Current refresh review | [#12 - Stabilize wallet focus revalidation](https://github.com/CipherCollective/Latch/pull/12) |
 | Base path | `/Latch/` |
 | Entrypoint | `docs/index.html` |
 | Runtime required by the repository | Node.js `>=22.13.0 <23`; the reproducibility build used `22.13.0` |
