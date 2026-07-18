@@ -14,7 +14,7 @@ not currently available, so this repository does **not** claim a live demo URL.
 | Static artifact commit | `69b8bddce7b8a839889d9f10872ec0dfae43f6d6` |
 | Base path | `/Latch/` |
 | Entrypoint | `docs/index.html` |
-| Runtime required by the repository | Node.js `22.x`; the reproducibility build used `22.12.0` |
+| Runtime required by the repository | Node.js `>=22.13.0 <23`; the reproducibility build used `22.13.0` |
 | Demo environment values | None |
 | Public URL | `[DEPLOYMENT FACT REQUIRED]` |
 | Public-host smoke test | Blocked until an authorized hosting target exists |
@@ -44,7 +44,8 @@ npx --yes prettier@3.6.2 --write docs/index.html
 `--emptyOutDir false` is required because `docs/` also contains authored
 documentation and evidence. Never replace it with `true` when targeting this
 directory. The committed `.nojekyll` file is a publisher instruction and is not
-emitted by Vite.
+emitted by Vite. The committed `.gitattributes` pins text release inputs to LF
+so a Windows checkout cannot silently change a copied asset's digest.
 
 For a local hosted-artifact check:
 
@@ -72,7 +73,7 @@ SHA-256 values are lowercase hexadecimal over the exact committed bytes.
 | `docs/THIRD_PARTY_NOTICES.txt` | 18,427 | `866d4354e7b850a4594e9cfe5e675e44e5082e5f99c25c242fa2578b65123f94` |
 | `docs/.nojekyll` | 48 | `95db1598a91b84c16ce818427289c2c3d9e5d4e363ae997af53cf9c000734a63` |
 
-An isolated rebuild under Node.js `22.12.0` reproduced the JavaScript, CSS,
+An isolated rebuild under Node.js `22.13.0` reproduced the JavaScript, CSS,
 SVG, notice file, and formatted HTML byte-for-byte. The HTML comparison applied
 the same pinned Prettier `3.6.2` normalization used for the committed file.
 

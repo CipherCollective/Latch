@@ -137,3 +137,13 @@ The corrected observer deployment requirement is: a genuine observer needs a sep
 - **Live PR update:** PR #7 was merged into `feat/atharv/wallet-adapter` by its author after the documentation snapshot. It joins PR #2 as a recorded no-self-merge process exception; PRs #8 and #9 remained open at this check.
 - **PR handoff:** Pending final deployment-record verification; the resulting URL will be appended without rewriting this event.
 - **PR URL appended after verification:** [#10 - `[STACK 10] Prepare verified deployment bundle`](https://github.com/CipherCollective/Latch/pull/10), targeting `feat/atharv/docs`; no self-merge.
+
+## 2026-07-18 - Node runtime floor reconciliation
+
+- **Branch:** `fix/atharv/node-runtime`.
+- **Trigger:** A remote clean clone at the previously pinned Node.js `22.12.0` passed install, typecheck, 130 tests, build, audit, dependency-tree, Markdown, and clean-tree gates, but npm emitted `EBADENGINE` because locked `jsdom@29.1.1` requires `^22.13.0` on the Node 22 line.
+- **Additional clean-clone finding:** Windows `core.autocrlf` converted the tracked SVG from LF to CRLF without marking the checkout dirty, so an otherwise identical Vite build copied a byte-different icon. Executable JavaScript/CSS, formatted HTML, and notices already matched.
+- **Correction:** Raise the workspace engine floor to `>=22.13.0 <23`, pin `.nvmrc` and CI to exact `22.13.0`, pin release text inputs to LF in `.gitattributes`, and update current operator/deployment instructions. Earlier build-log entries remain unchanged as historical evidence of what was run.
+- **Scope:** Runtime and reproducibility metadata only; no application behavior, dependency version, `api/**`, or `contract/**` path changes.
+- **Validation:** Pending an exact Node.js `22.13.0` clean-clone install and complete release-gate rerun; results will be appended before review handoff.
+- **PR handoff:** Pending exact-runtime verification; the resulting URL will be appended without rewriting this event.

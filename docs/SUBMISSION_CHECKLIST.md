@@ -21,7 +21,7 @@ evidence.
 - [x] `contract/**` was not edited by the Atharv/Codex workstream.
 - [x] No competing `api/**` implementation was created.
 - [x] Completed feature work through stack 10 is split into stacked review
-  branches and pull requests.
+  branches and pull requests; stack 11 is the isolated runtime-floor fix.
 - [ ] Every merge satisfied the no-self-merge rule. PRs #2 and #7 were merged
   by their author, Atharv; both process exceptions are recorded and must not be
   represented as compliant.
@@ -42,11 +42,13 @@ evidence.
 | 8 | `ci/atharv/release-gates` | [#8](https://github.com/CipherCollective/Latch/pull/8) | Open — human review required; CI passing |
 | 9 | `feat/atharv/docs` | [#9](https://github.com/CipherCollective/Latch/pull/9) | Open — human review required |
 | 10 | `deploy/atharv/public-demo` | [#10](https://github.com/CipherCollective/Latch/pull/10) | Open — human review required; public host blocked |
-| 11 | `release/atharv/integration` | [DEPLOYMENT FACT REQUIRED] | Open from the final stack tip to `main`; human merge required |
+| 11 | `fix/atharv/node-runtime` | [PULL REQUEST PENDING] | Clean-clone runtime-floor correction |
+| 12 | `release/atharv/integration` | [PULL REQUEST PENDING] | Open from the final stack tip to `main`; human merge required |
 
 ## Automated verification
 
-Run from a clean checkout with Node.js 22.12.0 or newer in the supported 22.x release line:
+Run from a clean checkout with Node.js `22.13.0` or newer in the supported
+`22.x` release line:
 
 ```bash
 npm ci
@@ -118,7 +120,7 @@ every workflow screen.
 
 - [x] Deployment is built from the documented stack tip.
 - [x] No environment variables or secrets are required for Demo mode.
-- [x] The exact committed artifact is reproducible under Node.js `22.12.0`.
+- [x] The exact committed artifact is reproducible under Node.js `22.13.0`.
 - [x] The generated static assets load with no `404` responses when hosted at
   the production `/Latch/` base path locally.
 - [x] Create, approve, verify, reject, replay, observer, revoke, and reset pass
