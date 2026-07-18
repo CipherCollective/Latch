@@ -20,7 +20,7 @@ evidence.
 - [x] No work was pushed directly to `main` or `master`.
 - [x] `contract/**` was not edited by the Atharv/Codex workstream.
 - [x] No competing `api/**` implementation was created.
-- [x] Completed feature work through stack 8 is split into stacked review branches and pull requests.
+- [x] Completed feature work through stack 9 is split into stacked review branches and pull requests.
 - [ ] Every merge satisfied the no-self-merge rule. PR #2 was merged by its author, Atharv; this process exception is recorded and must not be represented as compliant.
 - [ ] Every stacked PR has both required human approvals.
 - [ ] PRs are merged bottom-up without squashing away required evidence.
@@ -37,7 +37,7 @@ evidence.
 | 6 | `feat/atharv/wallet-adapter` | [#6](https://github.com/CipherCollective/Latch/pull/6) | Merged |
 | 7 | `fix/atharv/release-claims` | [#7](https://github.com/CipherCollective/Latch/pull/7) | Open — human review required |
 | 8 | `ci/atharv/release-gates` | [#8](https://github.com/CipherCollective/Latch/pull/8) | Open — human review required; CI passing |
-| 9 | `feat/atharv/docs` | [SUBMISSION FACT REQUIRED] | Open after docs verification |
+| 9 | `feat/atharv/docs` | [#9](https://github.com/CipherCollective/Latch/pull/9) | Open — human review required |
 | 10 | `deploy/atharv/public-demo` | [DEPLOYMENT FACT REQUIRED] | Open after public smoke test |
 | 11 | `release/atharv/integration` | [DEPLOYMENT FACT REQUIRED] | Open from the final stack tip to `main`; human merge required |
 
