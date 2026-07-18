@@ -114,6 +114,7 @@ describe('Latch application shell', () => {
     connectionAvailable = false;
     fireEvent.focus(window);
 
+    await waitFor(() => expect(getConnectionStatus).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(screen.getByText('Wallet setup')).toBeVisible());
     expect(screen.getByRole('heading', { level: 1, name: 'Connection needs attention' })).toBeVisible();
     expect(screen.queryByText('Preprod · Wallet connected')).not.toBeInTheDocument();

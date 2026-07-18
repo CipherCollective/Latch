@@ -8,10 +8,11 @@ not currently available, so this repository does **not** claim a live demo URL.
 
 | Fact | Verified value |
 | --- | --- |
-| Source branch tip | `feat/atharv/docs` at `37bf7c1b3929835fab591c9da73672acb80c13cf` |
-| Deployment branch | `deploy/atharv/public-demo` |
-| Review pull request | [#10 - Prepare verified deployment bundle](https://github.com/CipherCollective/Latch/pull/10) |
-| Static artifact commit | `69b8bddce7b8a839889d9f10872ec0dfae43f6d6` |
+| Initial documentation source | `feat/atharv/docs` at `37bf7c1b3929835fab591c9da73672acb80c13cf` |
+| Initial artifact review | [#10 - Prepare verified deployment bundle](https://github.com/CipherCollective/Latch/pull/10) |
+| Current application source | `fix/atharv/wallet-focus-stability` at `53a8a58eb70becb6fc3cc3b72d39a874dc01ec82` |
+| Current static artifact commit | `65a9195cd2e1f514515c3c0480603c45c05ca7c7` |
+| Current refresh review | [#12 - Stabilize wallet focus revalidation](https://github.com/CipherCollective/Latch/pull/12) |
 | Base path | `/Latch/` |
 | Entrypoint | `docs/index.html` |
 | Runtime required by the repository | Node.js `>=22.13.0 <23`; the reproducibility build used `22.13.0` |
@@ -30,7 +31,7 @@ independently verified core factory.
 Use the supported Node release line and a clean checkout:
 
 ```bash
-git switch deploy/atharv/public-demo
+git switch fix/atharv/wallet-focus-stability
 npm ci
 npm run typecheck
 npm run test:run
@@ -66,9 +67,9 @@ SHA-256 values are lowercase hexadecimal over the exact committed bytes.
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `docs/index.html` | 1,195 | `b8fb124244a626d10d9b446c595485d807a9fc5f7350f98e277c8cd82819ea11` |
+| `docs/index.html` | 1,195 | `6909b92e0e06e3f50396d38b028a8c934bc749910792a6078eb90f270ba15f16` |
 | `docs/assets/index-BT-wR-fx.css` | 32,714 | `078a774b6d2aed68be0b3113c8745f5292420800537bc7ab4cc5f546862150e4` |
-| `docs/assets/index-CSAbsmbg.js` | 291,898 | `d57a95fe0663a506bf57b1fd829435834e47bf64a43307c7802870813a0d951e` |
+| `docs/assets/index-DOWw7dSK.js` | 292,023 | `5611fb94c4d492b3496b80d3673558be5743eb8940de5f56190703b7afead5d5` |
 | `docs/latch-mark.svg` | 447 | `ace7249d68ab2d51a83897ac6fdd26cea6ac8f8a0128b5c060991ad9935eb1a9` |
 | `docs/THIRD_PARTY_NOTICES.txt` | 18,074 | `9bb1763e0847029c4cbdbc9d01e13596456cb6eacbfe96f90b654acb9031a89f` |
 | `docs/.nojekyll` | 48 | `95db1598a91b84c16ce818427289c2c3d9e5d4e363ae997af53cf9c000734a63` |
@@ -135,7 +136,7 @@ Pages would therefore require an explicit review of that difference.
 One authorized hosting path is required:
 
 1. Enable GitHub Pages for this private repository/organization plan and publish
-   `deploy/atharv/public-demo` from `/docs`; or
+   the reviewed final integration commit from `/docs`; or
 2. provide access to an approved Vercel project and credential, then deploy from
    the repository root using the committed `vercel.json`; or
 3. choose another approved static host and define its response-header policy.

@@ -242,6 +242,7 @@ describe('WalletConnectionPanel', () => {
     await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' });
     fireEvent.focus(window);
 
+    await waitFor(() => expect(connector.revalidate).toHaveBeenCalledOnce());
     expect(await screen.findByRole('heading', { level: 1, name: 'Connection needs attention' })).toHaveFocus();
     expect(screen.getByRole('alert')).toHaveTextContent('Switch your wallet to Preprod');
     expect(handlers.onDisconnected).toHaveBeenCalledOnce();

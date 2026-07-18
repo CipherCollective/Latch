@@ -20,7 +20,7 @@ evidence.
 - [x] No work was pushed directly to `main` or `master`.
 - [x] `contract/**` was not edited by the Atharv/Codex workstream.
 - [x] No competing `api/**` implementation was created.
-- [x] Completed feature work through stack 11 is split into stacked review
+- [x] Completed feature work through stack 12 is split into stacked review
   branches and pull requests.
 - [ ] Every merge satisfied the no-self-merge rule. PRs #2 and #7 were merged
   by their author, Atharv; both process exceptions are recorded and must not be
@@ -43,7 +43,8 @@ evidence.
 | 9 | `feat/atharv/docs` | [#9](https://github.com/CipherCollective/Latch/pull/9) | Open — human review required |
 | 10 | `deploy/atharv/public-demo` | [#10](https://github.com/CipherCollective/Latch/pull/10) | Open — human review required; public host blocked |
 | 11 | `fix/atharv/node-runtime` | [#11](https://github.com/CipherCollective/Latch/pull/11) | Open — human review required; clean-clone runtime correction |
-| 12 | `release/atharv/integration` | [PULL REQUEST PENDING] | Open from the final stack tip to `main`; human merge required |
+| 12 | `fix/atharv/wallet-focus-stability` | [#12](https://github.com/CipherCollective/Latch/pull/12) | Open — human review required; focus revalidation race correction |
+| 13 | `release/atharv/integration` | [PULL REQUEST PENDING] | Open from the final stack tip to `main`; human merge required |
 
 ## Automated verification
 
