@@ -1,0 +1,14 @@
+# Latch Build Log
+
+This log records work performed in the Atharv/Codex workstream. It must not contain secrets, wallet material, private witnesses, or private policy payloads.
+
+## 2026-07-18 - Specification baseline
+
+- **Branch:** `feat/atharv/spec`
+- **Scope:** Convert the Atharv/Codex PDF into the Latch implementation specification.
+- **Required setup:** Ran `npx skills add Kali-Decoder/Midnight-skills` from the repository root. Installation succeeded and reported 30 installed local skills. Only the relevant read-only guidance was inspected for this specification: React wallet connector, Midnight TypeScript/provider integration, and the disabled Dynamic wallet skill.
+- **Official documentation check:** Verified the current React wallet connector and DApp Connector guidance on `docs.midnight.network`.
+- **Package metadata check:** `@midnight-ntwrk/dapp-connector-api` = `4.0.1`; `@midnight-ntwrk/midnight-js-types` = `4.1.1`; `@midnight-ntwrk/midnight-js-contracts` = `4.1.1` at the time of the check. Implementation must still use the merged scaffold/lockfile as its version authority.
+- **Deliverable:** `docs/LATCH_ATHARV_BUILD_SPEC.md`.
+- **Validation:** Requirement traceability checks passed; Markdown code fences are balanced; `git diff --check` passed.
+- **Blockers:** None for specification. Real integration facts remain an Ashiha handoff dependency and are explicitly marked `[CORE FACT REQUIRED]` in downstream documentation.
