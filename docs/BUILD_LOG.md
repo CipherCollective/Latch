@@ -72,4 +72,4 @@ This log records work performed in the Atharv/Codex workstream. It must not cont
 - **Browser evidence:** `docs/screenshots/wallet-missing-desktop.png`, `docs/screenshots/wallet-connected-desktop.png`, and `docs/screenshots/wallet-connected-mobile.png`. Browser automation reported zero console errors and zero horizontal overflow at 320px for both demo and wallet paths.
 - **Dependency audit:** Exact `semver` and type packages are locked; `npm audit` reports zero known vulnerabilities.
 - **Core blocker:** The independently owned core package/import, client constructor, inputs/outputs, amount units, disclosure classification, proof/receipt semantics, deployed address, and evidence have not been supplied. No `api/**` or `contract/**` path was edited and no chain fact was inferred.
-- **PR handoff:** Pending creation after the verified feature commit; no self-merge.
+- **PR handoff:** [#6 - `[STACK 6] Secure Midnight wallet boundary`](https://github.com/CipherCollective/Latch/pull/6), targeting `feat/atharv/observer-mode`; no self-merge.
