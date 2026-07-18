@@ -205,4 +205,95 @@ describe('MockMoatClient', () => {
     const again = await client.getCapability(created.capabilityId);
     expect(again?.revoked).toBe(false);
   });
+
+  it('rolls back reserved nullifier when onProofStep throws', async () => {
+    const client = new MockMoatClient();
+    const agentKeyHash = demoAgentKeyHash();
+    const created = await client.createCapability({
+      policy: {
+        agentName: 'Research Agent A',
+        agentKeyHash,
+        perTransactionLimit: 20n,
+        totalBudget: 50n,
+        maxUses: 3,
+        allowedCategory: 'developer-tools',
+      },
+    });
+    const view = keyPair();
+    const spend = keyPair();
+    const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
+    const requestNonce = toHex32(randomBytes32());
+    const request = {
+      requestId: 'req-throw',
+      requestNonce,
+      agentName: 'Research Agent A',
+      agentKeyHash,
+      serviceId: 'codeshield',
+      serviceName: 'CodeShield',
+      category: 'developer-tools',
+      amount: 12n,
+      merchant,
+    };
+
+    await expect(
+      client.authorizeSpend({
+        capabilityId: created.capabilityId,
+        request,
+        onProofStep: (step) => {
+          if (step.id === 'submit-proof' && step.status === 'running') {
+            throw new Error('proof-step callback exploded');
+          }
+        },
+      }),
+    ).rejects.toThrow(/proof-step callback exploded/);
+
+    // Same nonce must not be permanently burned — retry without throwing succeeds.
+    const retry = await client.authorizeSpend({
+      capabilityId: created.capabilityId,
+      request: { ...request, requestId: 'req-throw-retry' },
+    });
+    expect(retry.status).toBe('approved');
+    expect(retry.nullifier).toBeTruthy();
+    expect(client.debugHasNullifier(retry.nullifier!)).toBe(true);
+  });
+
+  it('cleans capability lock map entries after authorize and revoke', async () => {
+    const client = new MockMoatClient();
+    const agentKeyHash = demoAgentKeyHash();
+    const created = await client.createCapability({
+      policy: {
+        agentName: 'Research Agent A',
+        agentKeyHash,
+        perTransactionLimit: 20n,
+        totalBudget: 50n,
+        maxUses: 5,
+        allowedCategory: 'developer-tools',
+      },
+    });
+    const view = keyPair();
+    const spend = keyPair();
+    const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
+
+    for (let i = 0; i < 3; i += 1) {
+      const approved = await client.authorizeSpend({
+        capabilityId: created.capabilityId,
+        request: {
+          requestId: `req-lock-${i}`,
+          requestNonce: toHex32(randomBytes32()),
+          agentName: 'Research Agent A',
+          agentKeyHash,
+          serviceId: 'codeshield',
+          serviceName: 'CodeShield',
+          category: 'developer-tools',
+          amount: 5n,
+          merchant,
+        },
+      });
+      expect(approved.status).toBe('approved');
+      expect(client.debugLockEntryCount()).toBe(0);
+    }
+
+    await client.revokeCapability(created.capabilityId);
+    expect(client.debugLockEntryCount()).toBe(0);
+  });
 });

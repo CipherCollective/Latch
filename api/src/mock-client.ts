@@ -117,18 +117,27 @@ export class MockMoatClient implements MoatClient {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const tail = previous.then(() => gate);
-    this.#locks.set(
-      capabilityId,
-      tail.catch(() => undefined),
-    );
+    // Single shared promise reference: must store the same object we compare on cleanup.
+    // Swallow prior rejection so a failed authorize does not poison the chain.
+    const chained = previous.catch(() => undefined).then(() => gate);
+    this.#locks.set(capabilityId, chained);
     await previous.catch(() => undefined);
     try {
       return await fn();
     } finally {
       release();
-      if (this.#locks.get(capabilityId) === tail) this.#locks.delete(capabilityId);
+      if (this.#locks.get(capabilityId) === chained) this.#locks.delete(capabilityId);
     }
+  }
+
+  /** @internal Regression helper — lock map must not leak entries after authorize/revoke. */
+  debugLockEntryCount(): number {
+    return this.#locks.size;
+  }
+
+  /** @internal Regression helper — reserved nullifiers visible for tests. */
+  debugHasNullifier(nullifierHex: string): boolean {
+    return this.#nullifiers.has(nullifierHex);
   }
 
   async connectWallet(): Promise<WalletSnapshot> {
@@ -314,40 +323,46 @@ export class MockMoatClient implements MoatClient {
       });
       const receiptHex = toHex32(receiptCommitment);
 
-      const proofSteps = await runSteps(steps, 'commit-receipt', input.onProofStep);
+      try {
+        const proofSteps = await runSteps(steps, 'commit-receipt', input.onProofStep);
 
-      // Re-check after yielding — revoke during steps must still win.
-      if (stored.publicState.revoked) {
-        this.#nullifiers.delete(nullifierHex);
+        // Re-check after yielding — revoke during steps must still win.
+        if (stored.publicState.revoked) {
+          this.#nullifiers.delete(nullifierHex);
+          return {
+            status: 'rejected',
+            capabilityId: input.capabilityId,
+            requestCommitment: toHex32(requestCommitment),
+            publicMessage: PUBLIC_REJECTION,
+            privateReason: 'revoked',
+            proofSteps: proofSteps.map((step) =>
+              step.id === 'commit-receipt' ? { ...step, status: 'failed' as const } : step,
+            ),
+          };
+        }
+
+        this.#receipts.add(receiptHex);
+        stored.privateState = advanceSpendStateAfterAuthorization(privateState);
+        stored.publicState = {
+          ...stored.publicState,
+          spendStateCommitment: toHex32(newSpendStateCommitment),
+        };
+
         return {
-          status: 'rejected',
+          status: 'approved',
           capabilityId: input.capabilityId,
           requestCommitment: toHex32(requestCommitment),
-          publicMessage: PUBLIC_REJECTION,
-          privateReason: 'revoked',
-          proofSteps: proofSteps.map((step) =>
-            step.id === 'commit-receipt' ? { ...step, status: 'failed' as const } : step,
-          ),
+          receiptCommitment: receiptHex,
+          nullifier: nullifierHex,
+          oneTimeDestination: destination,
+          publicMessage: 'Demo authorization fixture accepted. Not an on-chain transaction.',
+          proofSteps,
         };
+      } catch (error) {
+        // onProofStep (or other post-reserve work) threw — do not leave a burned nullifier.
+        this.#nullifiers.delete(nullifierHex);
+        throw error;
       }
-
-      this.#receipts.add(receiptHex);
-      stored.privateState = advanceSpendStateAfterAuthorization(privateState);
-      stored.publicState = {
-        ...stored.publicState,
-        spendStateCommitment: toHex32(newSpendStateCommitment),
-      };
-
-      return {
-        status: 'approved',
-        capabilityId: input.capabilityId,
-        requestCommitment: toHex32(requestCommitment),
-        receiptCommitment: receiptHex,
-        nullifier: nullifierHex,
-        oneTimeDestination: destination,
-        publicMessage: 'Demo authorization fixture accepted. Not an on-chain transaction.',
-        proofSteps,
-      };
     });
   }
 
