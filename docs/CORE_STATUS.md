@@ -29,97 +29,71 @@ Result: **30 skills installed** under `.agents/skills/` (gitignored). Relevant s
 
 ## Branch
 
-- Created from updated `main` (`git fetch`, `git switch main`, `git pull --ff-only`).
-- Active branch: `feat/ashiha/compact-bootstrap`
-- Ownership this branch: `contract/**`, root `package.json` / `.gitignore`, `docs/CORE_STATUS.md`
+- Prior: `feat/ashiha/compact-bootstrap` (createCapability openings) — this work depends on it until merged to `main`.
+- Active branch: `feat/ashiha/authorize-spend`
+- Ownership: `contract/**`, `docs/CORE_STATUS.md`
 - Did **not** edit `web/**`.
 
-## Deliverable — Compact bootstrap
-
-Smallest compiling MOAT-shaped contract:
+## Deliverable — authorizeSpend
 
 | Path | Role |
 | --- | --- |
-| `contract/src/moat.compact` | Ledger + `createCapability` with openings |
-| `contract/src/witnesses.ts` | Full private policy + spend-state openings |
-| `contract/src/index.ts` | Re-exports managed contract + witnesses |
-| `contract/package.json` | `@latch/contract` workspace package |
-| `package.json` | Root workspace (`contract` only on this branch) |
+| `contract/src/moat.compact` | `createCapability` + `authorizeSpend` |
+| `contract/src/witnesses.ts` | Policy, spend-state, and request openings |
 
-### Public ledger
+### `authorizeSpend` behaviour
 
-- `capabilities: Map<Bytes<32>, CapabilityPublic>`
-- `usedNullifiers: Set<Bytes<32>>` (consumers deferred to `authorizeSpend`)
-- `verifiedReceipts: Set<Bytes<32>>` (consumers deferred to `authorizeSpend`)
-- `capabilityCount: Counter`
+Public circuit arg: `capabilityId`.
 
-### `createCapability` behaviour (piece 2 — openings)
+Private witnesses (additional): `agentSecret`, `amount`, `requestCategoryHash`, `requestNonce`, `oneTimeDestinationHash`, `newStateSalt`.
 
-Private witnesses: `ownerSecret`, `policySalt`, `agentKeyHash`, `perTransactionLimit`, `totalBudget`, `maxUses`, `allowedCategoryHash`, `stateSalt`, `spentSoFar`, `useCount`.
+Checks (all observer assert messages are generic `"authorization rejected"`):
 
-Domain hashes:
+- capability exists and is not revoked
+- derived ID from owner openings matches the public arg
+- `hashAgentKey(agentSecret) == agentKeyHash` (agent bound into policy)
+- policy / current spend-state openings match ledger commitments
+- `amount > 0`, `amount <= perTxLimit`, `spentSoFar + amount <= totalBudget`
+- request category equals allowed category
+- `useCount < maxUses`
+- nullifier unused
 
-- `MOAT_CAPABILITY_ID_V1` → `capabilityId`
-- `MOAT_OWNER_V1` → `ownerCommitment`
-- `MOAT_POLICY_V1` → `policyCommitment` (capabilityId, agentKeyHash, limits, budget, maxUses, category, policySalt)
-- `MOAT_SPEND_STATE_V1` → `spendStateCommitment` (capabilityId, spentSoFar, useCount, stateSalt)
+Domain hashes: `MOAT_REQUEST_V1`, `MOAT_NULLIFIER_V1`, `MOAT_RECEIPT_V1`, plus `MOAT_AGENT_KEY_V1` for agent binding.
 
-Circuit asserts:
+On success:
 
-- `perTxLimit > 0`, `budget > 0`, `maxUses > 0`, `perTxLimit <= budget`
-- initial spend-state is `spentSoFar == 0` and `useCount == 0`
-- recomputed policy / spend-state commitments equal the submitted public args
-- capability ID is unused, then inserts disclosed commitments + `revoked=false`
+- insert disclosed nullifier into `usedNullifiers`
+- insert disclosed receipt into `verifiedReceipts`
+- update capability `spendStateCommitment` to the new state (`spent+amount`, `useCount+1`, `newStateSalt`)
 
-Numeric fields are cast to `Bytes<32>` inside the hash vectors so Compact keeps a homogeneous `persistentHash`.
-
-### Compile evidence
+### Compile evidence (authorizeSpend)
 
 ```bash
-# From repository root (WSL Ubuntu recommended for Compact on Windows hosts)
-export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 cd "$(git rev-parse --show-toplevel)/contract"
+# Midnight Compact on PATH (WSL on Windows hosts)
 compact compile src/moat.compact src/managed/moat
+npm run typecheck --workspace @latch/contract
 ```
 
-Or from the repo root after Compact is on `PATH`:
-
-```bash
-npm run compact
-```
-
-Package build (compile + TypeScript + copy managed bindings into `dist/`):
-
-```bash
-npm run build --workspace @latch/contract
-```
-
-Result: **exit 0** — circuit `createCapability` (Compact language **0.23.0** / toolchain **0.31.1** / runtime **0.16.0**).
-
-Also passed: `npm run typecheck:contract`.
-
-Generated under `contract/src/managed/moat/` (gitignored): `compiler/contract-info.json`, `contract/index.{js,d.ts}`, prover/verifier keys, zkir artifacts.
-
-`npm run build` copies `src/managed` → `dist/managed` via `contract/scripts/copy-managed.mjs` so `@latch/contract` consumers can resolve `./managed/moat/contract/index.js` from the published `dist/` tree.
-
-Compiler note: ledger `member`/`insert` on a witness-derived ID requires explicit `disclose(capabilityId)`.
+Result: **exit 0** — circuits `createCapability` + `authorizeSpend` (toolchain **0.31.1**). Typecheck pass.
 
 ## Not done yet (next pieces, one-by-one)
 
-1. `authorizeSpend` circuit + nullifier / receipt registries
-2. `revokeCapability`
-3. `api/**` TypeScript client + mock client + stealth module
-4. `docker-compose.yml` / proof-server wiring
-5. Contract tests from the brief checklist
+1. `revokeCapability`
+2. `api/**` TypeScript client + mock client + stealth module
+3. `docker-compose.yml` / proof-server wiring
+4. Contract tests from the brief checklist
 
 ## Blockers
 
-- None for compile/typecheck of `createCapability` openings.
-- Real deploy / Preprod still blocked on funded wallet + proof server; not started this branch.
-- Atharv frontend lives on unmerged feature branches; this branch intentionally starts from `main` and only adds `contract/**`.
+- None for compile/typecheck of `authorizeSpend`.
+- Branch depends on unmerged `feat/ashiha/compact-bootstrap` base until that PR lands on `main`.
+- Real deploy / Preprod still blocked on funded wallet + proof server.
+- Atharv frontend lives on unmerged feature branches; this branch only adds `contract/**`.
 
 ## Handoff notes for Atharv
 
 - Install Compact inside WSL, then `compact update 0.31.1`.
 - From repo root: `cd "$(git rev-parse --show-toplevel)/contract"` then compile, or use `npm run compact` / `npm run build --workspace @latch/contract`.
 - Generated bindings are under `contract/src/managed/moat/` (gitignored); run `npm run compact` (or full `build`) after clone so `dist/managed` is present.
+- Public authorize surface today: capability id arg + nullifier/receipt ledger sets + updated spend-state commitment. Request commitment is bound inside the receipt hash (not a separate ledger field yet).
