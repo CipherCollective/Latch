@@ -41,6 +41,16 @@ function requireBoolean(value: unknown, path: string): boolean {
  * through object spreading or nested references.
  */
 export function projectOwnerReceipt(receipt: AuthorizationReceipt): ReceiptClipboardPayload {
+  const txKind = requireString(receipt.tx.kind, 'tx.kind');
+  if (txKind !== 'demo-fixture' && txKind !== 'midnight-transaction') {
+    throw new TypeError('tx.kind must be "demo-fixture" or "midnight-transaction".');
+  }
+
+  const txNetworkId = requireString(receipt.tx.networkId, 'tx.networkId');
+  if (!['demo', 'undeployed', 'preprod', 'preview', 'mainnet'].includes(txNetworkId)) {
+    throw new TypeError('tx.networkId must be a supported network id.');
+  }
+
   const payload: ReceiptClipboardPayload = {
     capabilityId: requireString(receipt.capabilityId, 'capabilityId'),
     requestCommitment: requireString(receipt.requestCommitment, 'requestCommitment'),
@@ -56,15 +66,14 @@ export function projectOwnerReceipt(receipt: AuthorizationReceipt): ReceiptClipb
       fixture: requireBoolean(receipt.oneTimeDestination.fixture, 'oneTimeDestination.fixture'),
     },
     tx: {
-      kind: requireString(receipt.tx.kind, 'tx.kind') as AuthorizationReceipt['tx']['kind'],
-      networkId: requireString(receipt.tx.networkId, 'tx.networkId') as AuthorizationReceipt['tx']['networkId'],
+      kind: txKind as AuthorizationReceipt['tx']['kind'],
+      networkId: txNetworkId as AuthorizationReceipt['tx']['networkId'],
     },
   };
 
   if (typeof receipt.tx.txHash === 'string') {
     payload.tx.txHash = receipt.tx.txHash;
   }
-
   if (typeof receipt.tx.explorerUrl === 'string') {
     payload.tx.explorerUrl = receipt.tx.explorerUrl;
   }
