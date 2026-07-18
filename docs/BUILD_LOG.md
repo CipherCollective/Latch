@@ -34,3 +34,15 @@ This log records work performed in the Atharv/Codex workstream. It must not cont
 - **Evidence:** `docs/screenshots/capability-policy-desktop.png`, `docs/screenshots/capability-dashboard-desktop.png`, and `docs/screenshots/capability-dashboard-mobile.png`.
 - **Accessibility:** Native labeled fields, associated recoverable errors, invalid-state gating, focus transfer to new screen headings, live regions, non-color status labels, 44px+ controls, light-surface focus contrast, reduced-motion behavior, and full-value copy with shortened visual hashes were verified.
 - **Blockers:** None for deterministic capability creation. Real capability submission remains dependent on verified core facts from the independently owned integration package.
+
+## 2026-07-18 - Deterministic payment gate
+
+- **Branch:** `feat/atharv/demo-flow`
+- **Scope:** Fixed CodeShield approval and AlphaSignal rejection requests, serialized deterministic authorization engine, seven-step proof-client timeline, activity console, structured owner request dialog, exact state mutation, nullifier replay defense, one-time destination fixture, approved receipt, verification, private rejection explanations, and reset behavior.
+- **State invariants:** The default approval changes uses `3 -> 2` and remaining budget `50 -> 38`. Rejection, replay, and post-revocation attempts do not mutate capability state or store receipts. Concurrent use of the same nonce serializes so only one request can commit.
+- **Privacy:** Receipt clipboard JSON is built from a recursive explicit allowlist. Hostile runtime fixtures prove that injected policy, merchant, wallet, witness, rejection, and arbitrary nested values cannot cross the clipboard boundary.
+- **Truthfulness:** Demo destinations use a non-Midnight `demo_dest_` prefix; demo receipts contain no transaction hash or explorer URL; visible copy calls every proof, receipt, destination, and revocation artifact a deterministic demo fixture rather than a chain fact.
+- **Validation:** `npm run typecheck`, `npm run test:run` (47 tests), `npm run build`, and `git diff --check` passed. Browser verification exercised approval, receipt verification, rejection, mobile layout, and the full 320px path with zero application console errors and zero horizontal overflow.
+- **Evidence:** `docs/screenshots/demo-approved-desktop.png`, `docs/screenshots/demo-rejected-desktop.png`, and `docs/screenshots/demo-approved-mobile.png`.
+- **Accessibility:** Client-owned proof rows reserve vertical space and expose text/icon states, major results use polite live regions, the structured request dialog traps focus/Escape/restores focus, and actions remain native keyboard controls.
+- **Blockers:** None for the deterministic path. Proof and transaction behavior in real mode still require the verified core-client handoff.

@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import App from './App';
 import { MoatProvider } from './services/moat-provider';
+import { MockMoatClient } from './services/mock-moat-client';
 
 function renderApp() {
   return render(
-    <MoatProvider>
+    <MoatProvider client={new MockMoatClient()}>
       <App />
     </MoatProvider>,
   );
@@ -80,5 +81,59 @@ describe('Latch application shell', () => {
     expect(screen.getByText(/cannot exceed the total budget/i)).toBeVisible();
     expect(screen.getByRole('button', { name: /commit private capability/i })).toBeDisabled();
     expect(limit).toHaveValue('51');
+  });
+
+  it('runs the approved, rejected, replay, receipt-verification, and reset demo path', async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /commit private capability/i }));
+    await screen.findByRole('heading', { name: 'Agent activity console' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run approved request' }));
+
+    expect(await screen.findByRole('heading', { name: 'Private gate passed' })).toBeVisible();
+    expect(screen.getByText('Demo authorization fixture - not an on-chain transaction')).toBeVisible();
+    expect(screen.getByText('38')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Replay same authorization' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Verify receipt' }));
+    expect(await screen.findByText('Receipt verification passed.')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replay same authorization' }));
+    expect(await screen.findByText(/already consumed and cannot be replayed/i)).toBeVisible();
+    expect(screen.getByText('38')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Private gate passed' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run rejected request' }));
+    expect(await screen.findByText(/did not satisfy the private per-transaction limit/i)).toBeVisible();
+    expect(screen.getByText('Receipt verification passed.')).toBeVisible();
+    expect(screen.getByText('38')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset demo' }));
+    expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
+    expect(screen.queryByText('Receipt verification passed.')).not.toBeInTheDocument();
+  });
+
+  it('opens the owner-only structured request dialog and restores focus when closed', async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /commit private capability/i }));
+    await screen.findByRole('heading', { name: 'Agent activity console' });
+
+    const inspectButtons = screen.getAllByRole('button', { name: 'View structured request' });
+    const inspectCodeShield = inspectButtons[0];
+    if (!inspectCodeShield) throw new Error('Expected CodeShield inspect control.');
+    inspectCodeShield.focus();
+    fireEvent.click(inspectCodeShield);
+
+    expect(screen.getByRole('dialog', { name: /codeshield request/i })).toBeVisible();
+    expect(screen.getByText(/req-codeshield-001/i)).toBeVisible();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(inspectCodeShield).toHaveFocus();
   });
 });

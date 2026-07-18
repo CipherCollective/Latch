@@ -1,15 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Clipboard, Eye, RotateCcw, Shield, ShieldOff } from 'lucide-react';
-import type { CapabilityOwnerState } from '../../types/domain';
+import { AgentActivityConsole, type ActivityEvent, type DemoRequestKind } from '../authorization/AgentActivityConsole';
+import { AuthorizationOutcome } from '../authorization/AuthorizationOutcome';
+import { ProofProgress } from '../authorization/ProofProgress';
+import type {
+  AuthorizationReceipt,
+  AuthorizationResult,
+  CapabilityOwnerState,
+  ProofStep,
+} from '../../types/domain';
+
+type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
+type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
 
 interface CapabilityDashboardProps {
   capability: CapabilityOwnerState;
-  revoking: boolean;
+  operationBusy: boolean;
+  authorizationBusy: boolean;
+  clientError: string | null;
+  proofSteps: ProofStep[];
+  activeRequestLabel?: string;
+  approvedReceipt: AuthorizationReceipt | null;
+  rejection: RejectedAuthorization | null;
+  verification: VerificationState;
+  canReplay: boolean;
+  events: ActivityEvent[];
   onRevoke: () => Promise<void>;
+  onRunAuthorization: (kind: DemoRequestKind) => Promise<void>;
+  onVerifyReceipt: () => Promise<void>;
   onStartOver: () => void;
 }
 
-export function CapabilityDashboard({ capability, revoking, onRevoke, onStartOver }: CapabilityDashboardProps) {
+export function CapabilityDashboard({
+  capability,
+  operationBusy,
+  authorizationBusy,
+  clientError,
+  proofSteps,
+  activeRequestLabel,
+  approvedReceipt,
+  rejection,
+  verification,
+  canReplay,
+  events,
+  onRevoke,
+  onRunAuthorization,
+  onVerifyReceipt,
+  onStartOver,
+}: CapabilityDashboardProps) {
   const [copyStatus, setCopyStatus] = useState('');
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -53,7 +91,7 @@ export function CapabilityDashboard({ capability, revoking, onRevoke, onStartOve
             {capability.status === 'active' ? <Shield aria-hidden="true" size={15} /> : <ShieldOff aria-hidden="true" size={15} />}
             {capability.status === 'active' ? 'Active' : 'Revoked'}
           </span>
-          <button className="button button-secondary" type="button" onClick={onStartOver}>
+          <button className="button button-secondary" type="button" onClick={onStartOver} disabled={operationBusy}>
             <RotateCcw aria-hidden="true" size={16} />
             New capability
           </button>
@@ -106,11 +144,11 @@ export function CapabilityDashboard({ capability, revoking, onRevoke, onStartOve
                   <span>All later requests will be rejected. Existing demo receipts remain unchanged.</span>
                 </div>
                 <div>
-                  <button className="button button-ghost-light" type="button" onClick={cancelRevoke} disabled={revoking}>
+                  <button className="button button-ghost-light" type="button" onClick={cancelRevoke} disabled={operationBusy}>
                     Cancel
                   </button>
-                  <button className="button button-danger" type="button" onClick={() => void confirmRevoke()} disabled={revoking} autoFocus>
-                    {revoking ? 'Revoking…' : 'Confirm revoke'}
+                  <button className="button button-danger" type="button" onClick={() => void confirmRevoke()} disabled={operationBusy} autoFocus>
+                    {operationBusy ? 'Revoking…' : 'Confirm revoke'}
                   </button>
                 </div>
               </div>
@@ -120,6 +158,7 @@ export function CapabilityDashboard({ capability, revoking, onRevoke, onStartOve
                 className="text-action text-action-danger"
                 type="button"
                 onClick={() => setConfirmingRevoke(true)}
+                disabled={operationBusy}
               >
                 Revoke capability
               </button>
@@ -149,6 +188,33 @@ export function CapabilityDashboard({ capability, revoking, onRevoke, onStartOve
           </div>
         </article>
       </div>
+
+      {clientError ? (
+        <div className="workflow-error" role="alert" aria-live="assertive">
+          {clientError}
+        </div>
+      ) : null}
+
+      <AgentActivityConsole
+        capabilityStatus={capability.status}
+        busy={authorizationBusy}
+        canReplay={canReplay}
+        events={events}
+        onRun={onRunAuthorization}
+        onReset={onStartOver}
+      />
+
+      {authorizationBusy || proofSteps.length > 0 || approvedReceipt || rejection ? (
+        <div className="authorization-grid">
+          <ProofProgress steps={proofSteps} busy={authorizationBusy} requestLabel={activeRequestLabel} />
+          <AuthorizationOutcome
+            receipt={approvedReceipt}
+            rejection={rejection}
+            verification={verification}
+            onVerify={onVerifyReceipt}
+          />
+        </div>
+      ) : null}
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {copyStatus}
