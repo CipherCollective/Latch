@@ -1285,7 +1285,7 @@ The Atharv/Codex workstream is done only when:
 
 These references guide implementation details; the repository lockfile and merged core scaffold remain authoritative for exact versions.
 
-- Midnight React wallet connector: https://docs.midnight.network/guides/react-wallet-connect
-- Midnight DApp Connector API: https://docs.midnight.network/api-reference/dapp-connector
-- Midnight leaderboard full-stack tutorial: https://docs.midnight.network/tutorials/leaderboard/overview
-- Midnight local network guide: https://docs.midnight.network/guides/midnight-local-network
+- [Midnight React wallet connector](https://docs.midnight.network/guides/react-wallet-connect)
+- [Midnight DApp Connector API](https://docs.midnight.network/api-reference/dapp-connector)
+- [Midnight leaderboard full-stack tutorial](https://docs.midnight.network/tutorials/leaderboard/overview)
+- [Midnight local network guide](https://docs.midnight.network/guides/midnight-local-network)

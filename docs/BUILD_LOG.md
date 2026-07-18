@@ -73,3 +73,54 @@ This log records work performed in the Atharv/Codex workstream. It must not cont
 - **Dependency audit:** Exact `semver` and type packages are locked; `npm audit` reports zero known vulnerabilities.
 - **Core blocker:** The independently owned core package/import, client constructor, inputs/outputs, amount units, disclosure classification, proof/receipt semantics, deployed address, and evidence have not been supplied. No `api/**` or `contract/**` path was edited and no chain fact was inferred.
 - **PR handoff:** [#6 - `[STACK 6] Secure Midnight wallet boundary`](https://github.com/CipherCollective/Latch/pull/6), targeting `feat/atharv/observer-mode`; no self-merge.
+
+## 2026-07-18 - Pull-request reconciliation
+
+This append-only correction supersedes the earlier specification note that automatic PR creation was unavailable. GitHub CLI access became available later in the same build session; the earlier event record is retained above rather than rewritten.
+
+- **Stack 1:** [#1 - `[STACK 1] Specify the Atharv Latch build`](https://github.com/CipherCollective/Latch/pull/1), `feat/atharv/spec`.
+- **Stack 2:** [#2 - `[STACK 2] Build the accessible Latch UI shell`](https://github.com/CipherCollective/Latch/pull/2), `feat/atharv/ui-shell` targeting stack 1.
+- **Stack 3:** [#3 - `[STACK 3] Build the private capability flow`](https://github.com/CipherCollective/Latch/pull/3), `feat/atharv/capability-flow` targeting stack 2.
+- **Stack 4:** [#4 - `[STACK 4] Build the deterministic payment gate`](https://github.com/CipherCollective/Latch/pull/4), `feat/atharv/demo-flow` targeting stack 3.
+- **Stack 5:** [#5 - `[STACK 5] Isolate the public observer projection`](https://github.com/CipherCollective/Latch/pull/5), `feat/atharv/observer-mode` targeting stack 4.
+- **Stack 6:** [#6 - `[STACK 6] Secure Midnight wallet boundary`](https://github.com/CipherCollective/Latch/pull/6), `feat/atharv/wallet-adapter` targeting stack 5.
+
+The corrected observer deployment requirement is: a genuine observer needs a separately served public-only route or origin backed by a public-only data source; owner actions need their own authentication. The current same-session toggle remains only a DOM/accessibility/clipboard projection.
+
+## 2026-07-18 - Truthful release boundary
+
+- **Branch:** `fix/atharv/release-claims`.
+- **Scope:** Replace unsupported chain/proof demo labels with explicit local-fixture copy; suppress React's caught, uncaught, and recoverable raw-error callbacks; add fixed recovery copy; add Vercel anti-framing, MIME, and referrer headers; pin the supported runtime to Node `22.x`; and ship the complete runtime third-party notice in the static distribution.
+- **Evidence hardening:** Stale landing screenshots were recaptured from the corrected application. Owner and observer progress, receipt, and disclosure labels now distinguish a local deterministic model from a Compact proof or ledger event.
+- **Security:** A concurrently added, uncommitted ngrok `allowedHosts` override was isolated in a local stash and excluded from every branch and PR. Official Vite guidance was checked before exclusion. No secret, endpoint, wallet payload, `api/**`, or `contract/**` change is present.
+- **Validation:** `npm run typecheck`, `npm run test:run` (129 tests in 17 files), `npm run build`, `npm audit --audit-level=low`, `git diff --check`, Axe Core 4.12.1, browser console inspection, 320px overflow checks, and an independent staged-diff audit passed.
+- **PR handoff:** [#7 - `[STACK 7] Harden truthful release boundary`](https://github.com/CipherCollective/Latch/pull/7), targeting `feat/atharv/wallet-adapter`; no self-merge.
+
+## 2026-07-18 - Automated release gates
+
+- **Branch:** `ci/atharv/release-gates`.
+- **Scope:** Least-privilege GitHub Actions checks for exact lockfile install on Node 22.12.0, typecheck, full tests, production build, low-severity dependency audit, installed-tree integrity, high-confidence credential patterns, and clean tracked output.
+- **Supply-chain controls:** All actions are pinned to full commit SHAs, checkout credentials are not persisted, workflow permissions are `contents: read`, and jobs have explicit timeouts and concurrency cancellation.
+- **Repository-setting limitation:** GitHub's dependency-review action was exercised on the pull request and reported that dependency graph/Advanced Security is not enabled for this repository. The unsupported job was removed rather than represented as passing; `npm audit --audit-level=low`, `npm ls --all`, and lockfile-only installation remain enforced. Repository maintainers can add dependency review after enabling the required setting.
+- **Local validation:** Workflow YAML parses, action tag SHAs were resolved from the official repositories, and the same application commands pass locally.
+- **PR handoff:** [#8 - `[STACK 8] Enforce automated release gates`](https://github.com/CipherCollective/Latch/pull/8), targeting `fix/atharv/release-claims`; no self-merge.
+
+## 2026-07-18 - Live review and integration reconciliation
+
+- **Live PR state:** PRs #1-#6 are merged; PRs #7-#8 are open. PR #2 was merged by its author, Atharv, so the build does not claim universal compliance with the no-self-merge process rule. The other completed stack PRs were merged by Ashiha.
+- **Reviewer fixes incorporated:** Ashiha's `6e83b9c` activity-control fix and `8d738fc` owner-clipboard transaction enum allowlist were reconciled onto `fix/atharv/release-claims` as `50db46b` and `83917a2`. A dedicated runtime-enum regression test was added as `aaa177b`.
+- **Resulting invariants:** Authorization buttons remain disabled during capability lifecycle operations, and owner receipt serialization rejects unknown runtime `tx.kind` and `tx.networkId` values instead of casting them through the type boundary.
+- **Validation delta:** The reconciled suite reports 130 passing tests in 17 files. CI stack #8 was merged forward with the fixes and reruns the full release gate.
+- **Default-branch warning:** The earlier stacked merges landed child PRs into feature branches that had already been merged; `main` currently contains the specification but not the runnable web application. A final `release/atharv/integration` PR from the verified stack tip to `main` is required. Until a human merges it, README clean-clone instructions explicitly switch to the published docs stack branch.
+
+## 2026-07-18 - Release documentation and evidence
+
+- **Branch:** `feat/atharv/docs`.
+- **Scope:** Status-safe README, architecture and state/data-flow reference, privacy model, timed demo script, Devpost draft, operational submission checklist, comments-only environment template, search/social metadata, and refreshed responsive evidence captures.
+- **Truthfulness:** Documentation distinguishes implemented deterministic behavior, the hardened Preprod wallet connector boundary, pending core facts, pending deployment facts, and human-only submission facts. It makes no Compact, proof, transaction, address, explorer, deployment, authentication, production, or audit claim without evidence.
+- **Audit corrections:** The diagrams now show that a wallet session does not invoke `createRealMoatClient`; reset controls match the UI; mock reset/recommit semantics match memory behavior; owner-versus-observer rejection copy is explicit; clipboard validation claims match the serializer; and the observer route requirement no longer conflates authentication with a public-only data source.
+- **Evidence:** Landing, capability, approval, rejection, replay, observer, and wallet-boundary captures were regenerated from the release-hardened UI. PNG metadata inspection found only image chunks and no embedded text/path metadata.
+- **Validation:** Markdownlint passes with line length disabled; local links and images resolve; fences, tables, JSON, Mermaid structure, UTF-8, placeholders, versions, and section order pass scripted checks. `npm run typecheck`, `npm run test:run` (130 tests in 17 files), `npm run build`, `npm audit --audit-level=low`, and `git diff --check` pass. Axe Core 4.12.1 reports zero WCAG A/AA violations on release-critical states; automated browser runs report zero application console errors and zero horizontal overflow at 320px.
+- **Open facts:** Real core evidence remains `[CORE FACT REQUIRED]`; public deployment smoke remains `[DEPLOYMENT FACT REQUIRED]`; final video, Devpost/team fields, human approvals, merges, and submission remain `[SUBMISSION FACT REQUIRED]`.
+- **PR handoff:** Pending final documentation verification; the resulting URL will be appended without rewriting this event.
+- **PR URL appended after verification:** [#9 - `[STACK 9] Publish audited release documentation`](https://github.com/CipherCollective/Latch/pull/9), targeting `ci/atharv/release-gates`; no self-merge.
