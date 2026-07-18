@@ -80,4 +80,3 @@ jobs:
           git diff --check
           git diff --exit-code
           test -z "$(git status --short --untracked-files=no)"
-
