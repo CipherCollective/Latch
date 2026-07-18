@@ -30,7 +30,6 @@ const connectedSession = (walletName = 'Nightly'): ConnectedWalletSession =>
       networkId: 'preprod',
       walletName,
     },
-    connected: {},
     configuration: {},
   }) as ConnectedWalletSession;
 

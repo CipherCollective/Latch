@@ -48,6 +48,7 @@ export function CapabilityDashboard({
   onVerifyReceipt,
   onStartOver,
 }: CapabilityDashboardProps) {
+  const interactionBusy = operationBusy || authorizationBusy;
   const [copyStatus, setCopyStatus] = useState('');
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -91,7 +92,7 @@ export function CapabilityDashboard({
             {capability.status === 'active' ? <Shield aria-hidden="true" size={15} /> : <ShieldOff aria-hidden="true" size={15} />}
             {capability.status === 'active' ? 'Active' : 'Revoked'}
           </span>
-          <button className="button button-secondary" type="button" onClick={onStartOver} disabled={operationBusy}>
+          <button className="button button-secondary" type="button" onClick={onStartOver} disabled={interactionBusy}>
             <RotateCcw aria-hidden="true" size={16} />
             New capability
           </button>
@@ -144,11 +145,11 @@ export function CapabilityDashboard({
                   <span>All later requests will be rejected. Existing demo receipts remain unchanged.</span>
                 </div>
                 <div>
-                  <button className="button button-ghost-light" type="button" onClick={cancelRevoke} disabled={operationBusy}>
+                  <button className="button button-ghost-light" type="button" onClick={cancelRevoke} disabled={interactionBusy}>
                     Cancel
                   </button>
-                  <button className="button button-danger" type="button" onClick={() => void confirmRevoke()} disabled={operationBusy} autoFocus>
-                    {operationBusy ? 'Revoking…' : 'Confirm revoke'}
+                  <button className="button button-danger" type="button" onClick={() => void confirmRevoke()} disabled={interactionBusy} autoFocus>
+                    {interactionBusy ? 'Revoking…' : 'Confirm revoke'}
                   </button>
                 </div>
               </div>
@@ -158,7 +159,7 @@ export function CapabilityDashboard({
                 className="text-action text-action-danger"
                 type="button"
                 onClick={() => setConfirmingRevoke(true)}
-                disabled={operationBusy}
+                disabled={interactionBusy}
               >
                 Revoke capability
               </button>
@@ -197,7 +198,7 @@ export function CapabilityDashboard({
 
       <AgentActivityConsole
         capabilityStatus={capability.status}
-        busy={operationBusy}
+        busy={interactionBusy}
         canReplay={canReplay}
         events={events}
         onRun={onRunAuthorization}

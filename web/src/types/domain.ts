@@ -71,12 +71,9 @@ export interface ProofStep {
   safeDetail?: string;
 }
 
-export interface TxResult {
-  kind: 'demo-fixture' | 'midnight-transaction';
-  txHash?: string;
-  explorerUrl?: string;
-  networkId: NetworkId;
-}
+export type TxResult =
+  | { kind: 'demo-fixture'; networkId: 'demo' | 'undeployed'; txHash?: never; explorerUrl?: never }
+  | { kind: 'midnight-transaction'; networkId: 'preprod' | 'preview' | 'mainnet'; txHash: string; explorerUrl?: string };
 
 export interface AuthorizationReceipt {
   capabilityId: string;

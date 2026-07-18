@@ -243,7 +243,7 @@ describe('MidnightWalletConnector connection', () => {
       networkId: 'preprod',
       walletName: 'Second',
     });
-    expect(session.connected).toBe(secondFixture.api);
+    expect(session).not.toHaveProperty('connected');
     expect(session.configuration).toEqual(configuration());
     expect(session.snapshot.unshieldedAddress).toBeUndefined();
   });

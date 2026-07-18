@@ -51,7 +51,7 @@ export class MockMoatClient implements MoatClient {
   private readonly consumedNullifiers = new Set<string>();
   private readonly approvedReceiptCommitments = new Set<string>();
   private readonly stepDelayMs: number;
-  private authorizationTail: Promise<void> = Promise.resolve();
+  private mutationTail: Promise<void> = Promise.resolve();
 
   constructor(options: MockMoatClientOptions = {}) {
     const requestedDelay = options.stepDelayMs ?? 0;
@@ -65,6 +65,10 @@ export class MockMoatClient implements MoatClient {
   }
 
   async createCapability(input: CreateCapabilityInput): Promise<CreateCapabilityResult> {
+    return this.enqueueMutation(() => this.createCapabilitySerial(input));
+  }
+
+  private async createCapabilitySerial(input: CreateCapabilityInput): Promise<CreateCapabilityResult> {
     const perTransaction = parseDecimal(input.policy.perTransactionLimit);
     const totalBudget = parseDecimal(input.policy.totalBudget);
     if (
@@ -126,6 +130,7 @@ export class MockMoatClient implements MoatClient {
   }
 
   async getCapability(capabilityId: string): Promise<CapabilityOwnerState> {
+    await this.mutationTail;
     if (!this.capability || this.capability.capabilityId !== capabilityId) {
       throw new Error('Capability not found.');
     }
@@ -133,6 +138,10 @@ export class MockMoatClient implements MoatClient {
   }
 
   async revokeCapability(capabilityId: string): Promise<TxResult> {
+    return this.enqueueMutation(() => this.revokeCapabilitySerial(capabilityId));
+  }
+
+  private async revokeCapabilitySerial(capabilityId: string): Promise<TxResult> {
     if (!this.capability || this.capability.capabilityId !== capabilityId) {
       throw new Error('Capability not found.');
     }
@@ -145,21 +154,15 @@ export class MockMoatClient implements MoatClient {
     request: SpendRequest;
     onProofStep?: (step: ProofStep) => void;
   }): Promise<AuthorizationResult> {
-    const previousAuthorization = this.authorizationTail;
-    let releaseAuthorization: (() => void) | undefined;
-    this.authorizationTail = new Promise<void>((resolve) => {
-      releaseAuthorization = resolve;
-    });
-
-    await previousAuthorization;
-    try {
-      return await this.authorizeSpendSerial(input);
-    } finally {
-      releaseAuthorization?.();
-    }
+    const request: SpendRequest = {
+      ...input.request,
+      merchant: { ...input.request.merchant },
+    };
+    return this.enqueueMutation(() => this.authorizeSpendSerial(input));
   }
 
   async verifyReceipt(receiptCommitment: string): Promise<boolean> {
+    await this.mutationTail;
     return this.approvedReceiptCommitments.has(receiptCommitment);
   }
 
@@ -244,10 +247,11 @@ export class MockMoatClient implements MoatClient {
       await transition('open-policy', 'failed', 'Authorization could not continue.');
       return reject('UNKNOWN');
     }
+    const capability = this.capability;
 
     const nullifier = await fixtureHash('nullifier', {
       capabilityId: input.capabilityId,
-      requestNonce: input.request.requestNonce,
+      requestNonce: request.requestNonce,
     });
 
     // Replay is checked before private policy constraints, even though its visual
@@ -258,13 +262,13 @@ export class MockMoatClient implements MoatClient {
     }
 
     const oneTimeDestination = await this.generateOneTimeDestination(
-      input.request.merchant,
-      input.request.requestNonce,
+      request.merchant,
+      request.requestNonce,
     );
     await transition('derive-destination', 'passed', PASSED_DETAILS['derive-destination']);
     await transition('open-policy', 'passed', PASSED_DETAILS['open-policy']);
 
-    const rejection = this.evaluatePolicy(this.capability, input.request);
+    const rejection = this.evaluatePolicy(capability, request);
     if (rejection) {
       await transition('evaluate-constraints', 'failed', 'Authorization could not continue.');
       return reject(rejection);
@@ -278,16 +282,16 @@ export class MockMoatClient implements MoatClient {
     await transition('check-nullifier', 'passed', PASSED_DETAILS['check-nullifier']);
     await transition('submit-proof', 'passed', PASSED_DETAILS['submit-proof']);
 
-    const nextBudget = subtractDecimal(this.capability.remainingBudget, input.request.amount);
+    const nextBudget = subtractDecimal(capability.remainingBudget, request.amount);
     if (nextBudget === null) {
       await transition('commit-receipt', 'failed', 'Authorization could not continue.');
       return reject('UNKNOWN');
     }
 
-    const nextUses = this.capability.usesRemaining - 1;
+    const nextUses = capability.usesRemaining - 1;
     const requestCommitment = await fixtureHash('request-commitment', {
       capabilityId: input.capabilityId,
-      request: input.request,
+      request,
     });
     const spendStateCommitment = await fixtureHash('spend-state-commitment', {
       capabilityId: input.capabilityId,
@@ -301,6 +305,11 @@ export class MockMoatClient implements MoatClient {
       spendStateCommitment,
       oneTimeDestination,
     });
+
+    if (this.capability !== capability || capability.status !== 'active') {
+      await transition('commit-receipt', 'failed', 'Authorization could not continue.');
+      return reject('REVOKED');
+    }
 
     // This synchronous block is the demo's atomic commit point. No nullifier,
     // receipt, budget, use, or state commitment is updated on a rejected path.
@@ -327,6 +336,15 @@ export class MockMoatClient implements MoatClient {
         tx: { kind: 'demo-fixture', networkId: 'demo' },
       },
     };
+  }
+
+  private enqueueMutation<T>(mutation: () => Promise<T>): Promise<T> {
+    const result = this.mutationTail.then(mutation, mutation);
+    this.mutationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private evaluatePolicy(

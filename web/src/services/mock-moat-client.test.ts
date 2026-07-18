@@ -213,6 +213,63 @@ describe('MockMoatClient deterministic authorization', () => {
     });
   });
 
+  it('serializes revocation after an authorization without a policy-check-to-commit race', async () => {
+    const { client, created } = await createDefaultClient({ stepDelayMs: 1 });
+
+    const authorization = client.authorizeSpend({
+      capabilityId: created.capabilityId,
+      request: CODE_SHIELD_REQUEST,
+    });
+    const revocation = client.revokeCapability(created.capabilityId);
+
+    await expect(authorization).resolves.toMatchObject({ status: 'approved' });
+    await expect(revocation).resolves.toEqual({ kind: 'demo-fixture', networkId: 'demo' });
+    await expect(client.getCapability(created.capabilityId)).resolves.toMatchObject({
+      status: 'revoked',
+      usesRemaining: 2,
+      remainingBudget: '38',
+    });
+  });
+
+  it('observes a revocation invoked before authorization and rejects without consuming state', async () => {
+    const { client, created } = await createDefaultClient({ stepDelayMs: 1 });
+
+    const revocation = client.revokeCapability(created.capabilityId);
+    const authorization = client.authorizeSpend({
+      capabilityId: created.capabilityId,
+      request: CODE_SHIELD_REQUEST,
+    });
+
+    await expect(revocation).resolves.toEqual({ kind: 'demo-fixture', networkId: 'demo' });
+    await expect(authorization).resolves.toMatchObject({ status: 'rejected', privateReason: 'REVOKED' });
+    await expect(client.getCapability(created.capabilityId)).resolves.toMatchObject({
+      status: 'revoked',
+      usesRemaining: 3,
+      remainingBudget: '50',
+    });
+  });
+
+  it('orders replacement creation after an in-flight authorization and makes reads wait for both', async () => {
+    const { client, created } = await createDefaultClient({ stepDelayMs: 1 });
+
+    const authorization = client.authorizeSpend({
+      capabilityId: created.capabilityId,
+      request: CODE_SHIELD_REQUEST,
+    });
+    const replacement = client.createCapability(DEFAULT_CAPABILITY_INPUT);
+    const stateAfterBoth = client.getCapability(created.capabilityId);
+
+    const approved = await authorization;
+    if (approved.status !== 'approved') throw new Error('Expected authorization to run first.');
+    await expect(replacement).resolves.toMatchObject({ capabilityId: created.capabilityId });
+    await expect(stateAfterBoth).resolves.toMatchObject({
+      status: 'active',
+      usesRemaining: 3,
+      remainingBudget: '50',
+    });
+    await expect(client.verifyReceipt(approved.receipt.receiptCommitment)).resolves.toBe(false);
+  });
+
   it('does not consume a nullifier when the first attempt is rejected', async () => {
     const { client, created } = await createDefaultClient();
     const rejectedRequest: SpendRequest = {

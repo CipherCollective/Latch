@@ -17,6 +17,7 @@ const MAX_NAME_LENGTH = 80;
 const MAX_VERSION_LENGTH = 32;
 const MAX_ICON_LENGTH = 128 * 1024;
 const MAX_ENDPOINT_LENGTH = 2_048;
+const WALLET_PROBE_TIMEOUT_MS = 8_000;
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
 const SAFE_DATA_ICON = /^data:image\/(png|jpeg|webp);base64,([a-z0-9+/]+={0,2})$/i;
 const INTERNAL_FAILURE = Symbol('latch-wallet-connector-failure');
@@ -56,8 +57,17 @@ export interface WalletOption {
 
 export interface ConnectedWalletSession {
   readonly snapshot: WalletSnapshot;
-  readonly connected: ConnectedAPI;
   readonly configuration: Configuration;
+}
+
+function withWalletProbeDeadline<T>(probe: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(failure('UNKNOWN')), WALLET_PROBE_TIMEOUT_MS);
+  });
+  return Promise.race([probe, deadline]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
 }
 
 const PUBLIC_ERRORS: Readonly<Record<PublicWalletCode, PublicClientError>> = Object.freeze({
@@ -239,6 +249,7 @@ function defaultRegistryGetter(): unknown {
 export class MidnightWalletConnector {
   readonly #registryGetter: RegistryGetter;
   readonly #wallets = new Map<string, DiscoveredWallet>();
+  readonly #connectedApis = new WeakMap<ConnectedWalletSession, ConnectedAPI>();
   #nextId = 1;
 
   constructor(registryGetter: RegistryGetter = defaultRegistryGetter) {
@@ -322,13 +333,13 @@ export class MidnightWalletConnector {
       await Reflect.apply(hintUsage as ConnectedAPI['hintUsage'], connectedValue, [methods]);
     }
 
-    const statusBeforeConfiguration = await Reflect.apply(getConnectionStatus, connectedValue, []);
+    const statusBeforeConfiguration = await withWalletProbeDeadline(Reflect.apply(getConnectionStatus, connectedValue, []));
     if (!isRecordLike(statusBeforeConfiguration) || safeProperty(statusBeforeConfiguration, 'status') !== 'connected') {
       throw failure('UNKNOWN');
     }
     if (safeProperty(statusBeforeConfiguration, 'networkId') !== networkId) throw failure('WRONG_NETWORK');
 
-    const rawConfiguration = await Reflect.apply(getConfiguration, connectedValue, []);
+    const rawConfiguration = await withWalletProbeDeadline(Reflect.apply(getConfiguration, connectedValue, []));
     if (!isRecordLike(rawConfiguration) || safeProperty(rawConfiguration, 'networkId') !== networkId) {
       throw failure('WRONG_NETWORK');
     }
@@ -337,22 +348,23 @@ export class MidnightWalletConnector {
 
     // Close the race where the wallet disconnects or switches networks while
     // configuration is being read.
-    const statusAfterConfiguration = await Reflect.apply(getConnectionStatus, connectedValue, []);
+    const statusAfterConfiguration = await withWalletProbeDeadline(Reflect.apply(getConnectionStatus, connectedValue, []));
     if (!isRecordLike(statusAfterConfiguration) || safeProperty(statusAfterConfiguration, 'status') !== 'connected') {
       throw failure('UNKNOWN');
     }
     if (safeProperty(statusAfterConfiguration, 'networkId') !== networkId) throw failure('WRONG_NETWORK');
 
-    return {
+    const session: ConnectedWalletSession = {
       snapshot: {
         mode: 'real',
         connectionState: 'connected',
         networkId,
         walletName,
       },
-      connected: connectedValue as ConnectedAPI,
       configuration,
     };
+    this.#connectedApis.set(session, connectedValue as ConnectedAPI);
+    return session;
   }
 
   async connect(optionId: string, networkId: NetworkId = DEFAULT_REAL_NETWORK): Promise<ConnectedWalletSession> {
@@ -380,9 +392,11 @@ export class MidnightWalletConnector {
       throw toPublicWalletError(failure('WRONG_NETWORK'));
     }
 
+    const connected = this.#connectedApis.get(session);
+    if (!connected) throw toPublicWalletError(failure('UNKNOWN'));
     try {
       return await this.#confirmSession(
-        session.connected,
+        connected,
         DEFAULT_REAL_NETWORK,
         safeText(session.snapshot.walletName, 'Midnight wallet', MAX_NAME_LENGTH),
         false,

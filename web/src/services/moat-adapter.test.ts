@@ -14,7 +14,6 @@ const session = {
     networkId: 'preprod',
     walletName: 'Fixture wallet',
   },
-  connected: { privateProviderPayload: 'DO_NOT_RENDER' },
   configuration: {
     networkId: 'preprod',
     indexerUri: 'https://private-indexer.example',

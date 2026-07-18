@@ -127,16 +127,12 @@ No Ashiha/core package or Compact handoff is present on this branch. Therefore t
 ```bash
 git clone https://github.com/CipherCollective/Latch.git
 cd Latch
-git switch release/atharv/integration # Remove this line after the integration PR is merged.
 npm ci
 npm run dev
 ```
 
-The branch switch is required while `main` still lacks the final integration.
-After a human merges that PR, omit it and use the default-branch clone as the
-release path. Open the local URL printed by Vite (normally
-`http://localhost:5173`). Choose **Use deterministic demo**. No environment
-variable is needed for this path.
+Open the local URL printed by Vite (normally `http://localhost:5173`). Choose
+**Use deterministic demo**. No environment variable is needed for this path.
 
 ### Public deployment status
 
