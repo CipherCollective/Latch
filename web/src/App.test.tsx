@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { MoatProvider } from './services/moat-provider';
 import { MockMoatClient } from './services/mock-moat-client';
@@ -11,6 +11,10 @@ function renderApp() {
     </MoatProvider>,
   );
 }
+
+afterEach(() => {
+  Reflect.deleteProperty(window, 'midnight');
+});
 
 describe('Latch application shell', () => {
   it('explains the private gate and DeFi protocol flow', () => {
@@ -35,13 +39,84 @@ describe('Latch application shell', () => {
     expect(screen.queryByText(/^connected$/i)).not.toBeInTheDocument();
   });
 
-  it('does not claim wallet connection before a compatible wallet confirms it', () => {
+  it('discovers wallets without claiming a connection and preserves the demo fallback', async () => {
     renderApp();
 
     fireEvent.click(screen.getByRole('button', { name: /connect midnight wallet/i }));
 
-    expect(screen.getByText('Wallet mode selected')).toBeVisible();
-    expect(screen.getByText(/connection is not claimed until a compatible wallet confirms it/i)).toBeVisible();
+    expect(screen.getByText('Wallet setup')).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: 'No wallet detected' })).toBeVisible();
+    expect(screen.getByText(/install or enable a midnight wallet extension/i)).toBeVisible();
+    expect(screen.queryByText(/wallet connected/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    expect(screen.getByText('Demo mode')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
+  });
+
+  it('restores focus to the landing heading after leaving wallet setup', async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /connect midnight wallet/i }));
+    await screen.findByRole('heading', { level: 1, name: 'No wallet detected' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: /every payment must pass a private gate/i })).toHaveFocus();
+  });
+
+  it('claims a wallet connection only after validation and clears a stale focused session', async () => {
+    const privateEndpoint = 'https://private-indexer.fixture.invalid/';
+    const privateAddress = 'addr_private_must_not_render';
+    let connectionAvailable = true;
+    const getUnshieldedAddress = vi.fn(async () => privateAddress);
+    const getConnectionStatus = vi.fn(async () =>
+      connectionAvailable
+        ? { status: 'connected' as const, networkId: 'preprod' }
+        : { status: 'disconnected' as const },
+    );
+    const connected = {
+      hintUsage: vi.fn(async () => undefined),
+      getConnectionStatus,
+      getConfiguration: vi.fn(async () => ({
+        networkId: 'preprod',
+        indexerUri: privateEndpoint,
+        indexerWsUri: 'wss://private-indexer.fixture.invalid/',
+        substrateNodeUri: 'wss://private-node.fixture.invalid/',
+      })),
+      getUnshieldedAddress,
+    };
+    Object.defineProperty(window, 'midnight', {
+      configurable: true,
+      value: {
+        fixture: {
+          rdns: 'dev.latch.fixture',
+          name: 'Fixture wallet',
+          icon: '',
+          apiVersion: '4.0.1',
+          connect: vi.fn(async () => connected),
+        },
+      },
+    });
+    renderApp();
+
+    fireEvent.click(screen.getByRole('button', { name: /connect midnight wallet/i }));
+    const connectButton = await screen.findByRole('button', { name: 'Connect on Preprod' });
+    expect(screen.getByText('Wallet setup')).toBeVisible();
+    expect(screen.queryByText(/Preprod · Wallet connected/i)).not.toBeInTheDocument();
+    fireEvent.click(connectButton);
+
+    expect(await screen.findByText('Preprod · Wallet connected')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Midnight wallet connected' })).toBeVisible();
+    expect(getUnshieldedAddress).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveTextContent(privateEndpoint);
+    expect(document.body).not.toHaveTextContent(privateAddress);
+
+    connectionAvailable = false;
+    fireEvent.focus(window);
+
+    await waitFor(() => expect(screen.getByText('Wallet setup')).toBeVisible());
+    expect(screen.getByRole('heading', { level: 1, name: 'Connection needs attention' })).toBeVisible();
+    expect(screen.queryByText('Preprod · Wallet connected')).not.toBeInTheDocument();
   });
 
   it('creates, displays, and revokes the default private capability fixture', async () => {

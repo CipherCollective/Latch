@@ -24,7 +24,7 @@ const PROOF_STEP_DEFINITIONS: ReadonlyArray<Pick<ProofStep, 'id' | 'label'>> = [
   { id: 'open-policy', label: 'Opening policy commitment' },
   { id: 'evaluate-constraints', label: 'Evaluating hidden spending constraints' },
   { id: 'check-nullifier', label: 'Checking nullifier' },
-  { id: 'submit-proof', label: 'Generating/submitting Midnight proof' },
+  { id: 'submit-proof', label: 'Modeling proof submission (demo fixture)' },
   { id: 'commit-receipt', label: 'Receipt committed' },
 ];
 

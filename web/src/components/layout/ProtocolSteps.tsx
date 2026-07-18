@@ -3,17 +3,17 @@ import { Fingerprint, ScanLine, ShieldCheck } from 'lucide-react';
 const steps = [
   {
     label: 'Delegate',
-    description: 'Commit a spending capability without publishing its limits.',
+    description: 'Commit a private-policy fixture without publishing its readable limits.',
     icon: Fingerprint,
   },
   {
     label: 'Prove',
-    description: 'Evaluate each request against the hidden policy on Midnight.',
+    description: 'Model evaluation against the hidden policy; verified Midnight proofs require the core handoff.',
     icon: ScanLine,
   },
   {
     label: 'Spend',
-    description: 'Issue one verifiable, single-use authorization at a time.',
+    description: 'Issue one deterministic, single-use authorization fixture at a time.',
     icon: ShieldCheck,
   },
 ] as const;

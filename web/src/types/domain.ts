@@ -126,6 +126,7 @@ export interface CapabilityOwnerState extends CapabilityPublicState {
 export interface PublicClientError {
   code:
     | 'WALLET_MISSING'
+    | 'WALLET_DISCOVERY_FAILED'
     | 'WALLET_LOCKED'
     | 'WALLET_REJECTED'
     | 'WRONG_NETWORK'
@@ -137,4 +138,3 @@ export interface PublicClientError {
   message: string;
   retryable: boolean;
 }
-
