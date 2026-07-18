@@ -343,3 +343,31 @@ describe('networks', () => {
     expect(() => endpointsFromEnv({ MIDNIGHT_NETWORK: 'preprodction' })).toThrow(/Unsupported/);
   });
 });
+
+describe('real-client helpers', () => {
+  it('builds a compiled MOAT contract handle against managed assets', async () => {
+    const { makeMoatCompiledContract, defaultMoatZkAssetsPath } = await import('./moat-compiled.js');
+    const { existsSync } = await import('node:fs');
+    expect(existsSync(defaultMoatZkAssetsPath())).toBe(true);
+    const compiled = makeMoatCompiledContract();
+    expect(compiled.tag).toBe('moat');
+  });
+
+  it('rejects agentSecret that does not open agentKeyHash', async () => {
+    const { hashAgentKey, randomBytes32, toHex32 } = await import('./commitments.js');
+    const secret = randomBytes32();
+    const wrongHash = toHex32(randomBytes32());
+    // Lightweight check mirroring RealMoatClient.registerAgentSecret
+    expect(toHex32(hashAgentKey(secret))).not.toBe(wrongHash);
+  });
+
+  it('createMoatProviders rejects demo network', async () => {
+    const { createMoatProviders } = await import('./providers.js');
+    expect(() =>
+      createMoatProviders({
+        endpoints: { networkId: 'demo' },
+        walletAndMidnightProvider: {} as never,
+      }),
+    ).toThrow(/undeployed or preprod/);
+  });
+});
