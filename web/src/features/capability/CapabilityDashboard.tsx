@@ -11,7 +11,7 @@ import type {
 } from '../../types/domain';
 
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
-type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
+type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid' | 'unavailable';
 
 interface CapabilityDashboardProps {
   capability: CapabilityOwnerState;

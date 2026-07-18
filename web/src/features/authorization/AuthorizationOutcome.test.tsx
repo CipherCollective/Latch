@@ -89,7 +89,15 @@ describe('AuthorizationOutcome', () => {
 
     rerender(
       <AuthorizationOutcome
-        receipt={{ ...realReceipt, tx: { ...realReceipt.tx, explorerUrl: 'javascript:alert(1)' } }}
+        receipt={{
+          ...realReceipt,
+          tx: {
+            kind: 'midnight-transaction',
+            networkId: 'preprod',
+            txHash: 'tx_hash_123',
+            explorerUrl: 'javascript:alert(1)',
+          },
+        }}
         rejection={null}
         verification="idle"
         onVerify={vi.fn()}

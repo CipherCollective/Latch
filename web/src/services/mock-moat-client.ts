@@ -158,7 +158,7 @@ export class MockMoatClient implements MoatClient {
       ...input.request,
       merchant: { ...input.request.merchant },
     };
-    return this.enqueueMutation(() => this.authorizeSpendSerial(input));
+    return this.enqueueMutation(() => this.authorizeSpendSerial({ ...input, request }));
   }
 
   async verifyReceipt(receiptCommitment: string): Promise<boolean> {
@@ -189,6 +189,7 @@ export class MockMoatClient implements MoatClient {
     request: SpendRequest;
     onProofStep?: (step: ProofStep) => void;
   }): Promise<AuthorizationResult> {
+    const request = input.request;
     const proofSteps: ProofStep[] = PROOF_STEP_DEFINITIONS.map((step) => ({
       ...step,
       status: 'waiting',
