@@ -10,7 +10,7 @@ const EXPECTED_STEP_LABELS = [
   'Opening policy commitment',
   'Evaluating hidden spending constraints',
   'Checking nullifier',
-  'Generating/submitting Midnight proof',
+  'Modeling proof submission (demo fixture)',
   'Receipt committed',
 ];
 

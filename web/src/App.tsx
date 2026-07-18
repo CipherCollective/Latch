@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { ArrowDown, CircleCheck, EyeOff, LockKeyhole, Network } from 'lucide-react';
 import { BrandMark } from './components/layout/BrandMark';
 import { ModeChooser } from './components/layout/ModeChooser';
@@ -9,8 +9,10 @@ import { ALPHA_SIGNAL_REQUEST, CODE_SHIELD_REQUEST } from './demo/requests';
 import type { ActivityEvent, DemoRequestKind } from './features/authorization/AgentActivityConsole';
 import { ObserverWorkspace } from './features/observer/ObserverWorkspace';
 import { ViewModeToggle } from './features/observer/ViewModeToggle';
+import { WalletConnectionPanel } from './features/wallet/WalletConnectionPanel';
 import { buildObserverWorkspaceModel } from './privacy/observer-serializer';
 import { useMoatClient } from './services/moat-provider';
+import type { ConnectedWalletSession } from './wallet/midnight-wallet-connector';
 import type {
   AuthorizationReceipt,
   AuthorizationResult,
@@ -20,7 +22,7 @@ import type {
 } from './types/domain';
 
 type SelectedMode = 'landing' | 'demo' | 'wallet';
-type Screen = 'landing' | 'policy' | 'dashboard';
+type Screen = 'landing' | 'wallet' | 'policy' | 'dashboard';
 type ViewMode = 'owner' | 'observer';
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
 type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid';
@@ -37,6 +39,7 @@ function App() {
   const [selectedMode, setSelectedMode] = useState<SelectedMode>('landing');
   const [screen, setScreen] = useState<Screen>('landing');
   const [viewMode, setViewMode] = useState<ViewMode>('owner');
+  const [walletSession, setWalletSession] = useState<ConnectedWalletSession | null>(null);
   const [capability, setCapability] = useState<CapabilityOwnerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [authorizationBusy, setAuthorizationBusy] = useState(false);
@@ -53,6 +56,15 @@ function App() {
   const eventCounter = useRef(0);
   const eventKeys = useRef(new Set<string>());
   const verificationTarget = useRef<string | null>(null);
+  const landingHeadingRef = useRef<HTMLHeadingElement>(null);
+  const shouldRestoreLandingFocus = useRef(false);
+
+  useEffect(() => {
+    if (screen === 'landing' && shouldRestoreLandingFocus.current) {
+      shouldRestoreLandingFocus.current = false;
+      landingHeadingRef.current?.focus();
+    }
+  }, [screen]);
 
   const advanceEpoch = () => {
     operationEpoch.current += 1;
@@ -84,6 +96,7 @@ function App() {
   const enterDemo = () => {
     advanceEpoch();
     setSelectedMode('demo');
+    setWalletSession(null);
     setViewMode('owner');
     setClientError(null);
     setCapability(null);
@@ -94,9 +107,12 @@ function App() {
   const chooseWallet = () => {
     advanceEpoch();
     setSelectedMode('wallet');
+    setWalletSession(null);
     setViewMode('owner');
     setClientError(null);
+    setCapability(null);
     clearAuthorizationState();
+    setScreen('wallet');
   };
 
   const commitCapability = async (input: CreateCapabilityInput) => {
@@ -220,8 +236,10 @@ function App() {
 
   const returnHome = () => {
     advanceEpoch();
+    shouldRestoreLandingFocus.current = true;
     setScreen('landing');
     setSelectedMode('landing');
+    setWalletSession(null);
     setViewMode('owner');
     setClientError(null);
     setCapability(null);
@@ -251,14 +269,27 @@ function App() {
             DeFi protocol
           </span>
           <span className={`mode-chip mode-chip-${selectedMode}`}>
-            {selectedMode === 'demo' ? 'Demo mode' : selectedMode === 'wallet' ? 'Wallet setup' : 'Private by design'}
+            {selectedMode === 'demo'
+              ? 'Demo mode'
+              : selectedMode === 'wallet' && walletSession
+                ? 'Preprod · Wallet connected'
+                : selectedMode === 'wallet'
+                  ? 'Wallet setup'
+                  : 'Private by design'}
           </span>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1}>
         {screen === 'landing' ? (
-          <Landing selectedMode={selectedMode} onDemo={enterDemo} onWallet={chooseWallet} />
+          <Landing headingRef={landingHeadingRef} onDemo={enterDemo} onWallet={chooseWallet} />
+        ) : screen === 'wallet' ? (
+          <WalletConnectionPanel
+            onConnected={setWalletSession}
+            onDisconnected={() => setWalletSession(null)}
+            onUseDemo={enterDemo}
+            onBack={returnHome}
+          />
         ) : screen === 'policy' ? (
           <PolicyBuilder busy={busy} clientError={clientError} onCommit={commitCapability} onBack={returnHome} />
         ) : capability ? (
@@ -315,11 +346,11 @@ function App() {
 }
 
 function Landing({
-  selectedMode,
+  headingRef,
   onDemo,
   onWallet,
 }: {
-  selectedMode: SelectedMode;
+  headingRef: RefObject<HTMLHeadingElement | null>;
   onDemo: () => void;
   onWallet: () => void;
 }) {
@@ -328,11 +359,11 @@ function Landing({
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
           <span className="eyebrow">Private authorization for autonomous commerce</span>
-          <h1 id="hero-title">Every payment must pass a private gate.</h1>
+          <h1 id="hero-title" ref={headingRef} tabIndex={-1}>Every payment must pass a private gate.</h1>
           <p className="hero-kicker">Give agents money. Not your wallet.</p>
           <p className="hero-subhead">
-            Delegate spending power under private, zero-knowledge rules on Midnight. The chain verifies the gate;
-            your limits stay private.
+            Delegate spending power under private rules. The deterministic demo models the full gate locally;
+            verified Midnight proofs and transactions remain disabled until the core handoff.
           </p>
           <ModeChooser onDemo={onDemo} onWallet={onWallet} />
           <a className="architecture-link" href="#architecture">
@@ -357,9 +388,9 @@ function Landing({
             <div>
               <dt>
                 <CircleCheck aria-hidden="true" size={15} />
-                Publicly verifiable
+                Public protocol projection
               </dt>
-              <dd>Commitment, proof status, nullifier</dd>
+              <dd>Commitments, aggregate status, nullifier fixture</dd>
             </div>
             <div>
               <dt>
@@ -369,12 +400,6 @@ function Landing({
               <dd>Owner, limits, budget, category, merchant</dd>
             </div>
           </dl>
-          {selectedMode === 'wallet' ? (
-            <div className="mode-notice" role="status" aria-live="polite">
-              <strong>Wallet mode selected</strong>
-              <span>Connection is not claimed until a compatible wallet confirms it. Demo mode remains available.</span>
-            </div>
-          ) : null}
         </aside>
       </section>
       <ProtocolSteps />
@@ -386,7 +411,7 @@ function Landing({
         <div className="architecture-flow" role="list" aria-label="Latch architecture flow">
           <div role="listitem"><span>01</span><strong>Owner</strong><small>Commits private policy</small></div>
           <i aria-hidden="true" />
-          <div role="listitem"><span>02</span><strong>Latch gate</strong><small>Proves hidden constraints</small></div>
+          <div role="listitem"><span>02</span><strong>Latch gate</strong><small>Evaluates private constraints</small></div>
           <i aria-hidden="true" />
           <div role="listitem"><span>03</span><strong>Agent</strong><small>Receives one-time receipt</small></div>
         </div>
