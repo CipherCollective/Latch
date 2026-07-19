@@ -36,6 +36,6 @@
     "local:proof": "docker compose up -d proof-server"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.13.0 <23"
   }
 }
