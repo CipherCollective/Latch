@@ -11,11 +11,13 @@ This log is for the Compact / Midnight / cryptography workstream. It must not co
 | Compact host | WSL Ubuntu (required; native Windows Compact is unsupported) |
 | Node (Windows) | v24.5.0 |
 | npm (Windows) | 11.5.1 |
+| Docker Desktop | 28.3.2 (running) |
 | Compact CLI | 0.5.1 (`/root/.local/bin/compact`) |
 | Compact toolchain | **0.31.1** (support-matrix target) |
 | Compact language pragma | `>= 0.22` |
 | Compact runtime (pinned) | `@midnight-ntwrk/compact-runtime@0.16.0` |
-| Midnight.js (not wired yet) | support matrix lists 4.1.1 — deferred to real-client / deploy |
+| Local stack images | node `0.22.5`, indexer `4.0.2`, proof-server `8.0.3` |
+| Midnight.js (not wired yet) | deferred to real-client / deploy |
 
 ## Midnight skills
 
@@ -29,63 +31,71 @@ Result: **30 skills installed** under `.agents/skills/` (gitignored).
 
 ## Branch
 
-- Active branch: `feat/ashiha/api-client`
-- Depends on: `feat/ashiha/revoke-capability` (and prior contract PRs) until merged to `main`
-- Ownership: `api/**`, root workspace scripts, `docs/CORE_STATUS.md`, `.env.example`
+- Active branch: `feat/ashiha/docker-proof-server`
+- Depends on: `feat/ashiha/api-client` (and prior contract PRs) until merged to `main`
+- Ownership: `docker-compose.yml`, root `local:*` scripts, `api/src/networks.ts`, `.env.example`, `docs/CORE_STATUS.md`
 - Did **not** edit `web/**`
 
-## Deliverable — `@latch/api` client package
+## Deliverable — local undeployed Docker stack
 
 | Path | Role |
 | --- | --- |
-| `api/src/types.ts` | Shared `MoatClient` / policy / spend / proof-step types for Atharv |
-| `api/src/commitments.ts` | Domain-separated SHA-256 concat model of Compact domains |
-| `api/src/stealth.ts` | secp256k1 one-time destinations (`@noble/secp256k1` + HMAC setup) |
-| `api/src/mock-client.ts` | Deterministic demo `MockMoatClient` (no chain txs) |
-| `api/src/moat-client.ts` | Real-client seam (`CoreHandoffRequiredError` until deploy handoff) |
-| `api/src/wallet-session.ts` | Minimal session shape for real-client injection |
-| `api/src/index.ts` | Package exports |
-| `.env.example` | Network / proof-server placeholders (no secrets) |
+| `docker-compose.yml` | Node + indexer + proof-server (from official midnight-local-dev tags) |
+| `api/src/networks.ts` | `UNDEPLOYED_ENDPOINTS` + `endpointsFromEnv` |
+| `.env.example` | Undeployed / Preprod env placeholders |
+| Root `package.json` | `local:up` / `local:down` / `local:ps` / `local:logs` / `local:proof` |
 
-### Behaviour notes
-
-- **MockMoatClient**: creates local capability openings, runs proof-step callbacks, evaluates hidden constraints privately, issues demo receipts / nullifiers, advances spend state via `advanceSpendStateAfterAuthorization`.
-- Demo `createCapability` **binds** `policy.agentKeyHash` (32-byte hex) into the policy commitment; spend requests must reuse that same hash. A local `agentSecret` is still generated for demo nullifiers — the real client must supply an `agentSecret` that opens the hash via `hashAgentKey`.
-- Policy creation rejects zero/negative limits, `perTransactionLimit > totalBudget`, and values outside Compact `Uint<64>` / `Uint<32>` ranges.
-- `authorizeSpend` / `revokeCapability` are serialized per capability; nullifiers are reserved before proof-step awaits; `getCapability` returns a defensive copy.
-- **Commitment parity**: TS helpers mirror Compact domain tags; bit-exact Compact `persistentHash` parity is deferred until the real Midnight client lands.
-- **Stealth**: clean-room one-time destination from merchant view/spend meta-address + request nonce; unit-tested sender/receiver agreement (fixed ephemeral scalar when asserting nonce binding).
-
-### Verify (Windows)
+### Commands
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-npm install
-npm run typecheck:api
-npm run test:api
+npm run local:up      # full stack
+npm run local:ps      # health
+npm run local:proof   # proof-server only (e.g. Preprod proving)
+npm run local:down
 ```
 
-Result: **exit 0** — `typecheck:api` + **8** vitest tests passed.
+### Endpoints (localhost-bound)
 
-Compact rebuild still requires WSL (`npm run build --workspace @latch/contract` from WSL). Existing `contract/dist` is enough for API typecheck/tests.
+| Service | URL |
+| --- | --- |
+| Proof server | `http://127.0.0.1:6300` |
+| Node | `http://127.0.0.1:9944` |
+| Indexer GraphQL | `http://127.0.0.1:8088/api/v4/graphql` |
+| Indexer WS | `ws://127.0.0.1:8088/api/v4/graphql/ws` |
 
-## Not done yet (next pieces, one-by-one)
+### Verify evidence (this machine)
 
-1. `docker-compose.yml` / proof-server wiring
-2. Real Midnight client wired to compiled contract (after deploy handoff)
-3. Full Compact circuit transition tests (simulator / proof path)
-4. Deploy (deferred — last)
+```text
+npm run typecheck:api  → exit 0
+npm run test:api       → 16 tests passed
+docker compose up -d   → midnight-node, midnight-indexer, midnight-proof-server all healthy
+```
+
+Notes:
+
+- Compose adapted from `midnightntwrk/midnight-local-dev` `standalone.yml` (official images/tags).
+- Indexer passwords / `APP__INFRA__SECRET` are **local-dev defaults only**.
+- Full undeployed txs still need genesis wallet funding / DUST registration (use midnight-local-dev CLI or document when real-client lands). Proof server alone is enough to start generating proofs once a client exists.
+- Containers are Compose project-namespaced (no fixed `container_name`) to avoid collisions with other Midnight stacks.
+
+## Not done yet (next pieces)
+
+1. Real Midnight client wired to compiled contract (providers + deploy address)
+2. Full Compact circuit transition tests (simulator / proof path)
+3. Deploy (deferred — last)
+4. Genesis funding helper for undeployed (optional; midnight-local-dev covers this)
 
 ## Blockers
 
-- None for API typecheck/tests on this branch.
-- Real deploy / Preprod still blocked on funded wallet + proof server + Docker.
-- Atharv frontend lives on unmerged feature branches; consume `@latch/api` exports when ready.
+- None for bringing the local stack up healthy.
+- Real deploy / Preprod still blocked on funded wallet + real client.
+- Contract address for undeployed: **[CORE FACT REQUIRED]** after deploy step.
 
 ## Handoff notes for Atharv
 
-- Import from `@latch/api`: types, `MockMoatClient`, commitment helpers, stealth helpers.
-- Demo mode: `new MockMoatClient()` — label clearly as demo fixtures, not on-chain.
-- Real mode: `createRealMoatClient(factory, session)` throws `CoreHandoffRequiredError` until Ashiha supplies a verified factory (contract address, providers, amount units).
-- After successful `authorizeSpend`, local private state must call `advanceSpendStateAfterAuthorization` (mock already does this).
-- Circuits available on contract side: `createCapability`, `authorizeSpend`, `revokeCapability`.
+- Demo mode: no Docker required (`MockMoatClient`, `MIDNIGHT_NETWORK=demo`).
+- Local real mode: `npm run local:up`, then use `UNDEPLOYED_ENDPOINTS` / `.env.example`.
+- Import network helpers from `@latch/api` (`endpointsFromEnv`, `UNDEPLOYED_ENDPOINTS`).
+- Real `MoatClient` still throws `CoreHandoffRequiredError` until the real-client branch lands.
+- Circuits available: `createCapability`, `authorizeSpend`, `revokeCapability`.

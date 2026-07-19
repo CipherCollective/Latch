@@ -17,16 +17,23 @@
     "build:api": "npm run prepare:contract && npm run build --workspace @latch/api",
     "typecheck:api": "npm run prepare:contract && npm run typecheck --workspace @latch/api",
     "test:api": "npm run prepare:contract && npm run test --workspace @latch/api",
-    "typecheck:all": "npm run typecheck:contract && npm run typecheck:api && npm run typecheck --workspace @latch/web",
-    "test:all": "npm run test:contract && npm run test:api && npm run test:run --workspace @latch/web",
     "dev": "npm run dev --workspace @latch/web",
     "build": "npm run build --workspace @latch/web",
     "build:pages": "npm run build:pages --workspace @latch/web",
     "lint": "npm run lint --workspace @latch/web",
-    "typecheck": "npm run typecheck --workspace @latch/web",
-    "test": "npm run test --workspace @latch/web",
+    "typecheck:web": "npm run typecheck --workspace @latch/web",
+    "test:web": "npm run test --workspace @latch/web",
     "test:run": "npm run test:run --workspace @latch/web",
-    "preview": "npm run preview --workspace @latch/web"
+    "preview": "npm run preview --workspace @latch/web",
+    "typecheck": "npm run typecheck:web",
+    "test": "npm run test:web",
+    "typecheck:all": "npm run typecheck:contract && npm run typecheck:api && npm run typecheck:web",
+    "test:all": "npm run test:contract && npm run test:api && npm run test:web",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down",
+    "local:ps": "docker compose ps",
+    "local:logs": "docker compose logs -f",
+    "local:proof": "docker compose up -d proof-server"
   },
   "engines": {
     "node": ">=22.13.0 <23"

@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import * as secp from '@noble/secp256k1';
 
-import { hashCapabilityId, hashOwner, hashPolicy, randomBytes32, toHex32 } from './commitments.js';
+import {
+  hashAgentKey,
+  hashCapabilityId,
+  hashOwner,
+  hashPolicy,
+  randomBytes32,
+  toHex32,
+} from './commitments.js';
 import { MockMoatClient } from './mock-client.js';
+import { endpointsFromEnv, PREPROD_ENDPOINTS, UNDEPLOYED_ENDPOINTS } from './networks.js';
 import { deriveReceiverOneTimePublicKey, generateOneTimeDestination } from './stealth.js';
 
 function keyPair() {
@@ -11,8 +19,25 @@ function keyPair() {
   return { priv, pub };
 }
 
-function demoAgentKeyHash(): string {
-  return toHex32(randomBytes32());
+function demoAgent(): { agentSecret: Uint8Array; agentKeyHash: string } {
+  const agentSecret = randomBytes32();
+  return { agentSecret, agentKeyHash: toHex32(hashAgentKey(agentSecret)) };
+}
+
+async function createReadyCapability(client: MockMoatClient, overrides?: Partial<{ maxUses: number; totalBudget: bigint }>) {
+  const agent = demoAgent();
+  client.registerAgentSecret(agent.agentKeyHash, agent.agentSecret);
+  const created = await client.createCapability({
+    policy: {
+      agentName: 'Research Agent A',
+      agentKeyHash: agent.agentKeyHash,
+      perTransactionLimit: 20n,
+      totalBudget: overrides?.totalBudget ?? 50n,
+      maxUses: overrides?.maxUses ?? 3,
+      allowedCategory: 'developer-tools',
+    },
+  });
+  return { ...agent, created };
 }
 
 describe('commitments', () => {
@@ -86,12 +111,13 @@ describe('stealth', () => {
 describe('MockMoatClient', () => {
   it('rejects policies the contract cannot create', async () => {
     const client = new MockMoatClient();
-    const agentKeyHash = demoAgentKeyHash();
+    const agent = demoAgent();
+    client.registerAgentSecret(agent.agentKeyHash, agent.agentSecret);
     await expect(
       client.createCapability({
         policy: {
           agentName: 'Research Agent A',
-          agentKeyHash,
+          agentKeyHash: agent.agentKeyHash,
           perTransactionLimit: 0n,
           totalBudget: 50n,
           maxUses: 3,
@@ -104,7 +130,7 @@ describe('MockMoatClient', () => {
       client.createCapability({
         policy: {
           agentName: 'Research Agent A',
-          agentKeyHash,
+          agentKeyHash: agent.agentKeyHash,
           perTransactionLimit: 60n,
           totalBudget: 50n,
           maxUses: 3,
@@ -114,19 +140,26 @@ describe('MockMoatClient', () => {
     ).rejects.toThrow(/exceeds totalBudget/);
   });
 
+  it('requires registerAgentSecret before createCapability', async () => {
+    const client = new MockMoatClient();
+    const agent = demoAgent();
+    await expect(
+      client.createCapability({
+        policy: {
+          agentName: 'Research Agent A',
+          agentKeyHash: agent.agentKeyHash,
+          perTransactionLimit: 20n,
+          totalBudget: 50n,
+          maxUses: 3,
+          allowedCategory: 'developer-tools',
+        },
+      }),
+    ).rejects.toThrow(/registerAgentSecret/);
+  });
+
   it('approves a valid spend using the create-time agentKeyHash, verifies receipt, rejects replay and category failure', async () => {
     const client = new MockMoatClient();
-    const agentKeyHash = demoAgentKeyHash();
-    const created = await client.createCapability({
-      policy: {
-        agentName: 'Research Agent A',
-        agentKeyHash,
-        perTransactionLimit: 20n,
-        totalBudget: 50n,
-        maxUses: 3,
-        allowedCategory: 'developer-tools',
-      },
-    });
+    const { agentKeyHash, created } = await createReadyCapability(client);
 
     const view = keyPair();
     const spend = keyPair();
@@ -188,17 +221,7 @@ describe('MockMoatClient', () => {
 
   it('returns a defensive copy from getCapability', async () => {
     const client = new MockMoatClient();
-    const agentKeyHash = demoAgentKeyHash();
-    const created = await client.createCapability({
-      policy: {
-        agentName: 'Research Agent A',
-        agentKeyHash,
-        perTransactionLimit: 20n,
-        totalBudget: 50n,
-        maxUses: 3,
-        allowedCategory: 'developer-tools',
-      },
-    });
+    const { created } = await createReadyCapability(client);
     const snap = await client.getCapability(created.capabilityId);
     expect(snap).toBeTruthy();
     snap!.revoked = true;
@@ -206,70 +229,73 @@ describe('MockMoatClient', () => {
     expect(again?.revoked).toBe(false);
   });
 
-  it('rolls back reserved nullifier when onProofStep throws', async () => {
+  it('continues authorization when onProofStep throws (observer isolation)', async () => {
     const client = new MockMoatClient();
-    const agentKeyHash = demoAgentKeyHash();
-    const created = await client.createCapability({
-      policy: {
-        agentName: 'Research Agent A',
-        agentKeyHash,
-        perTransactionLimit: 20n,
-        totalBudget: 50n,
-        maxUses: 3,
-        allowedCategory: 'developer-tools',
-      },
-    });
+    const { agentKeyHash, created } = await createReadyCapability(client);
     const view = keyPair();
     const spend = keyPair();
     const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
-    const requestNonce = toHex32(randomBytes32());
-    const request = {
-      requestId: 'req-throw',
-      requestNonce,
-      agentName: 'Research Agent A',
-      agentKeyHash,
-      serviceId: 'codeshield',
-      serviceName: 'CodeShield',
-      category: 'developer-tools',
-      amount: 12n,
-      merchant,
-    };
 
-    await expect(
-      client.authorizeSpend({
-        capabilityId: created.capabilityId,
-        request,
-        onProofStep: (step) => {
-          if (step.id === 'submit-proof' && step.status === 'running') {
-            throw new Error('proof-step callback exploded');
-          }
-        },
-      }),
-    ).rejects.toThrow(/proof-step callback exploded/);
-
-    // Same nonce must not be permanently burned — retry without throwing succeeds.
-    const retry = await client.authorizeSpend({
+    const approved = await client.authorizeSpend({
       capabilityId: created.capabilityId,
-      request: { ...request, requestId: 'req-throw-retry' },
+      request: {
+        requestId: 'req-observer',
+        requestNonce: toHex32(randomBytes32()),
+        agentName: 'Research Agent A',
+        agentKeyHash,
+        serviceId: 'codeshield',
+        serviceName: 'CodeShield',
+        category: 'developer-tools',
+        amount: 12n,
+        merchant,
+      },
+      onProofStep: () => {
+        throw new Error('ui callback exploded');
+      },
     });
-    expect(retry.status).toBe('approved');
-    expect(retry.nullifier).toBeTruthy();
-    expect(client.debugHasNullifier(retry.nullifier!)).toBe(true);
+    expect(approved.status).toBe('approved');
+    expect(client.debugHasNullifier(approved.nullifier!)).toBe(true);
+  });
+
+  it('lets revoke win while proof steps are running', async () => {
+    const client = new MockMoatClient();
+    const { agentKeyHash, created } = await createReadyCapability(client);
+    const view = keyPair();
+    const spend = keyPair();
+    const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
+
+    let revokePromise: Promise<{ success: boolean }> | undefined;
+    const result = await client.authorizeSpend({
+      capabilityId: created.capabilityId,
+      request: {
+        requestId: 'req-revoke-race',
+        requestNonce: toHex32(randomBytes32()),
+        agentName: 'Research Agent A',
+        agentKeyHash,
+        serviceId: 'codeshield',
+        serviceName: 'CodeShield',
+        category: 'developer-tools',
+        amount: 12n,
+        merchant,
+      },
+      onProofStep: (step) => {
+        if (step.id === 'submit-proof' && step.status === 'running' && !revokePromise) {
+          revokePromise = client.revokeCapability(created.capabilityId);
+        }
+      },
+    });
+
+    expect(revokePromise).toBeTruthy();
+    await revokePromise;
+    expect(result.status).toBe('rejected');
+    expect(result.privateReason).toBe('revoked');
+    const cap = await client.getCapability(created.capabilityId);
+    expect(cap?.revoked).toBe(true);
   });
 
   it('cleans capability lock map entries after authorize and revoke', async () => {
     const client = new MockMoatClient();
-    const agentKeyHash = demoAgentKeyHash();
-    const created = await client.createCapability({
-      policy: {
-        agentName: 'Research Agent A',
-        agentKeyHash,
-        perTransactionLimit: 20n,
-        totalBudget: 50n,
-        maxUses: 5,
-        allowedCategory: 'developer-tools',
-      },
-    });
+    const { agentKeyHash, created } = await createReadyCapability(client, { maxUses: 5 });
     const view = keyPair();
     const spend = keyPair();
     const merchant = { viewPublicKey: view.pub, spendPublicKey: spend.pub };
@@ -295,5 +321,25 @@ describe('MockMoatClient', () => {
 
     await client.revokeCapability(created.capabilityId);
     expect(client.debugLockEntryCount()).toBe(0);
+  });
+});
+
+describe('networks', () => {
+  it('defaults to demo when unset', () => {
+    expect(endpointsFromEnv({})).toEqual({ networkId: 'demo' });
+  });
+
+  it('resolves undeployed endpoints from env', () => {
+    const cfg = endpointsFromEnv({ MIDNIGHT_NETWORK: 'undeployed' });
+    expect(cfg).toMatchObject(UNDEPLOYED_ENDPOINTS);
+  });
+
+  it('uses public Preprod defaults when preprod vars are omitted', () => {
+    expect(endpointsFromEnv({ MIDNIGHT_NETWORK: 'preprod' })).toMatchObject(PREPROD_ENDPOINTS);
+  });
+
+  it('rejects unsupported or misspelled networks', () => {
+    expect(() => endpointsFromEnv({ MIDNIGHT_NETWORK: 'preview' })).toThrow(/not configured/);
+    expect(() => endpointsFromEnv({ MIDNIGHT_NETWORK: 'preprodction' })).toThrow(/Unsupported/);
   });
 });
