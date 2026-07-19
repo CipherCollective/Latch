@@ -61,6 +61,19 @@ export interface WalletDiagnosticEvent {
   readonly providerCount?: number;
   readonly errorCode?: PublicWalletCode;
   readonly reactState?: 'connecting' | 'connected' | 'error' | 'disconnected';
+  readonly apiSurface?: ConnectedApiSurface;
+  readonly hasConnectionStatus?: boolean;
+  readonly hasConfiguration?: boolean;
+  readonly hasHintUsage?: boolean;
+  readonly registryAliasCount?: number;
+  readonly aliasesShareObject?: boolean;
+  readonly aliasesShareConnect?: boolean;
+  readonly hasConfigurationNetwork?: boolean;
+  readonly configurationNetworkMatches?: boolean;
+  readonly indexerUriScheme?: SafeEndpointScheme;
+  readonly indexerWsUriScheme?: SafeEndpointScheme;
+  readonly substrateNodeUriScheme?: SafeEndpointScheme;
+  readonly proverServerUriScheme?: SafeEndpointScheme;
 }
 
 export type WalletDiagnosticSink = (event: Readonly<WalletDiagnosticEvent>) => void;
@@ -81,12 +94,36 @@ type IsEnabledMethod = () => boolean | Promise<boolean>;
 type EnableMethod = () => unknown | Promise<unknown>;
 
 interface DiscoveredWallet {
+  readonly providerIdentity: string;
+  readonly registryKeys: readonly string[];
+  readonly aliasesShareObject: boolean;
+  readonly aliasesShareConnect: boolean;
   readonly registryKey: string;
   readonly option: WalletOption;
   readonly candidate: object;
   readonly connect?: InitialAPI['connect'];
   readonly isEnabled?: IsEnabledMethod;
   readonly enable?: EnableMethod;
+}
+
+type ConnectedApiSurface = 'direct' | 'unknown';
+type SafeEndpointScheme = 'https' | 'wss' | 'other' | 'missing';
+
+interface ConnectedApiResolution {
+  readonly api?: ConnectedAPI;
+  readonly surface: ConnectedApiSurface;
+  readonly hasConnectionStatus: boolean;
+  readonly hasConfiguration: boolean;
+  readonly hasHintUsage: boolean;
+}
+
+interface ConfigurationInspection {
+  readonly hasConfigurationNetwork: boolean;
+  readonly configurationNetworkMatches: boolean;
+  readonly indexerUriScheme: SafeEndpointScheme;
+  readonly indexerWsUriScheme: SafeEndpointScheme;
+  readonly substrateNodeUriScheme: SafeEndpointScheme;
+  readonly proverServerUriScheme: SafeEndpointScheme;
 }
 
 interface ConnectedSessionState {
@@ -312,12 +349,42 @@ async function withDeadline<T>(promise: Promise<T>, milliseconds: number, timeou
   });
 }
 
-function isConnectedApiCandidate(value: unknown): value is ConnectedAPI {
-  return (
-    isRecordLike(value) &&
-    typeof safeProperty(value, 'getConnectionStatus') === 'function' &&
-    typeof safeProperty(value, 'getConfiguration') === 'function'
-  );
+function inspectConnectedApi(value: unknown): ConnectedApiResolution {
+  const hasConnectionStatus = typeof safeProperty(value, 'getConnectionStatus') === 'function';
+  const hasConfiguration = typeof safeProperty(value, 'getConfiguration') === 'function';
+  const hasHintUsage = typeof safeProperty(value, 'hintUsage') === 'function';
+  return {
+    surface: isRecordLike(value) ? 'direct' : 'unknown',
+    hasConnectionStatus,
+    hasConfiguration,
+    hasHintUsage,
+    ...(isRecordLike(value) && hasConnectionStatus && hasConfiguration ? { api: value as ConnectedAPI } : {}),
+  };
+}
+
+function safeEndpointScheme(value: unknown): SafeEndpointScheme {
+  if (value === undefined) return 'missing';
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_ENDPOINT_LENGTH) return 'other';
+  try {
+    const protocol = new URL(value).protocol;
+    if (protocol === 'https:') return 'https';
+    if (protocol === 'wss:') return 'wss';
+    return 'other';
+  } catch {
+    return 'other';
+  }
+}
+
+function inspectConfiguration(value: unknown, networkId: NetworkId): ConfigurationInspection {
+  const rawNetwork = safeProperty(value, 'networkId');
+  return {
+    hasConfigurationNetwork: rawNetwork !== undefined,
+    configurationNetworkMatches: rawNetwork === networkId,
+    indexerUriScheme: safeEndpointScheme(safeProperty(value, 'indexerUri')),
+    indexerWsUriScheme: safeEndpointScheme(safeProperty(value, 'indexerWsUri')),
+    substrateNodeUriScheme: safeEndpointScheme(safeProperty(value, 'substrateNodeUri')),
+    proverServerUriScheme: safeEndpointScheme(safeProperty(value, 'proverServerUri')),
+  };
 }
 
 export class MidnightWalletConnector {
@@ -328,7 +395,7 @@ export class MidnightWalletConnector {
   readonly #pollIntervalMs: number;
   readonly #probeTimeoutMs: number;
   readonly #wallets = new Map<string, DiscoveredWallet>();
-  readonly #idsByRegistryKey = new Map<string, string>();
+  readonly #idsByProviderIdentity = new Map<string, string>();
   readonly #connectedSessions = new WeakMap<ConnectedWalletSession, ConnectedSessionState>();
   #nextId = 1;
 
@@ -369,13 +436,23 @@ export class MidnightWalletConnector {
     }
   }
 
+  #providerIdentity(registryKey: string, candidate: object): string {
+    const rdns = safeText(safeProperty(candidate, 'rdns'), '', MAX_NAME_LENGTH);
+    const name = safeText(safeProperty(candidate, 'name'), '', MAX_NAME_LENGTH);
+    const { display: apiVersion } = safeApiVersion(safeProperty(candidate, 'apiVersion'));
+    if (rdns) return `rdns:${rdns}|api:${apiVersion}`;
+    if (name && apiVersion !== 'unknown') return `name:${name}|api:${apiVersion}`;
+    return `registry:${registryKey}`;
+  }
+
   #buildWallet(registryKey: string, candidate: unknown, fallbackIndex: number): DiscoveredWallet | undefined {
     if (!isRecordLike(candidate)) return undefined;
 
-    let id = this.#idsByRegistryKey.get(registryKey);
+    const providerIdentity = this.#providerIdentity(registryKey, candidate);
+    let id = this.#idsByProviderIdentity.get(providerIdentity);
     if (!id) {
       id = `wallet-${this.#nextId++}`;
-      this.#idsByRegistryKey.set(registryKey, id);
+      this.#idsByProviderIdentity.set(providerIdentity, id);
     }
 
     const name = safeText(safeProperty(candidate, 'name'), `Midnight wallet ${fallbackIndex}`, MAX_NAME_LENGTH);
@@ -404,6 +481,10 @@ export class MidnightWalletConnector {
     };
 
     return {
+      providerIdentity,
+      registryKeys: [registryKey],
+      aliasesShareObject: true,
+      aliasesShareConnect: true,
       registryKey,
       option,
       candidate,
@@ -418,14 +499,41 @@ export class MidnightWalletConnector {
     this.#wallets.clear();
 
     try {
-      const options: WalletOption[] = [];
+      const groupedWallets = new Map<string, DiscoveredWallet>();
       for (const [registryKey, candidate] of this.#entries()) {
-        const wallet = this.#buildWallet(registryKey, candidate, options.length + 1);
+        const wallet = this.#buildWallet(registryKey, candidate, groupedWallets.size + 1);
         if (!wallet) continue;
+        const previous = groupedWallets.get(wallet.providerIdentity);
+        groupedWallets.set(
+          wallet.providerIdentity,
+          previous
+            ? {
+                ...wallet,
+                registryKeys: [...previous.registryKeys, registryKey],
+                aliasesShareObject: previous.aliasesShareObject && previous.candidate === wallet.candidate,
+                aliasesShareConnect: previous.aliasesShareConnect && previous.connect === wallet.connect,
+              }
+            : wallet,
+        );
+      }
+      const options: WalletOption[] = [];
+      for (const wallet of groupedWallets.values()) {
         this.#wallets.set(wallet.option.id, wallet);
         options.push({ ...wallet.option });
       }
-      this.#emit({ stage: 'discovery', status: 'succeeded', providerCount: options.length });
+      const aliasGroup = [...groupedWallets.values()].find((wallet) => wallet.registryKeys.length > 1);
+      this.#emit({
+        stage: 'discovery',
+        status: 'succeeded',
+        providerCount: options.length,
+        ...(aliasGroup
+          ? {
+              registryAliasCount: aliasGroup.registryKeys.length,
+              aliasesShareObject: aliasGroup.aliasesShareObject,
+              aliasesShareConnect: aliasGroup.aliasesShareConnect,
+            }
+          : {}),
+      });
       return options;
     } catch (error) {
       const publicError = toPublicWalletError(error);
@@ -443,7 +551,11 @@ export class MidnightWalletConnector {
 
   #providerIsCurrent(wallet: DiscoveredWallet): boolean {
     try {
-      const current = this.#entries().find(([key]) => key === wallet.registryKey);
+      const matching = this.#entries().filter(
+        ([registryKey, candidate]) =>
+          isRecordLike(candidate) && this.#providerIdentity(registryKey, candidate) === wallet.providerIdentity,
+      );
+      const current = matching[matching.length - 1];
       return current !== undefined && current[1] === wallet.candidate;
     } catch {
       return false;
@@ -544,15 +656,20 @@ export class MidnightWalletConnector {
       networkId,
       authorization,
     });
-    if (isConnectedApiCandidate(authorizedValue)) {
+    const authorizedResolution = inspectConnectedApi(authorizedValue);
+    if (authorizedResolution.api) {
       this.#emit({
         stage: 'api_resolution',
         status: 'succeeded',
         providerId: wallet.option.id,
         networkId,
         authorization,
+        apiSurface: authorizedResolution.surface,
+        hasConnectionStatus: authorizedResolution.hasConnectionStatus,
+        hasConfiguration: authorizedResolution.hasConfiguration,
+        hasHintUsage: authorizedResolution.hasHintUsage,
       });
-      return authorizedValue;
+      return authorizedResolution.api;
     }
     if (!wallet.connect) throw failure('CONNECTOR_ERROR');
 
@@ -561,15 +678,21 @@ export class MidnightWalletConnector {
       this.#authorizationTimeoutMs,
       'AUTHORIZATION_TIMEOUT',
     );
-    if (!isConnectedApiCandidate(connectedValue)) throw failure('CONNECTOR_ERROR');
+    const connectedResolution = inspectConnectedApi(connectedValue);
     this.#emit({
       stage: 'api_resolution',
-      status: 'succeeded',
+      status: connectedResolution.api ? 'succeeded' : 'failed',
       providerId: wallet.option.id,
       networkId,
       authorization,
+      apiSurface: connectedResolution.surface,
+      hasConnectionStatus: connectedResolution.hasConnectionStatus,
+      hasConfiguration: connectedResolution.hasConfiguration,
+      hasHintUsage: connectedResolution.hasHintUsage,
+      ...(!connectedResolution.api ? { errorCode: 'CONNECTOR_ERROR' as const } : {}),
     });
-    return connectedValue;
+    if (!connectedResolution.api) throw failure('CONNECTOR_ERROR');
+    return connectedResolution.api;
   }
 
   #startConnectorManagedApi(
@@ -602,15 +725,21 @@ export class MidnightWalletConnector {
     }
 
     return withDeadline(connection, this.#authorizationTimeoutMs, 'AUTHORIZATION_TIMEOUT').then((connectedValue) => {
-      if (!isConnectedApiCandidate(connectedValue)) throw failure('CONNECTOR_ERROR');
+      const resolution = inspectConnectedApi(connectedValue);
       this.#emit({
         stage: 'api_resolution',
-        status: 'succeeded',
+        status: resolution.api ? 'succeeded' : 'failed',
         providerId: wallet.option.id,
         networkId,
         authorization: 'connector_managed',
+        apiSurface: resolution.surface,
+        hasConnectionStatus: resolution.hasConnectionStatus,
+        hasConfiguration: resolution.hasConfiguration,
+        hasHintUsage: resolution.hasHintUsage,
+        ...(!resolution.api ? { errorCode: 'CONNECTOR_ERROR' as const } : {}),
       });
-      return connectedValue;
+      if (!resolution.api) throw failure('CONNECTOR_ERROR');
+      return resolution.api;
     });
   }
 
@@ -696,11 +825,22 @@ export class MidnightWalletConnector {
       this.#probeTimeoutMs,
       'CONNECTOR_ERROR',
     );
+    const configurationInspection = inspectConfiguration(rawConfiguration, networkId);
     if (isRecordLike(rawConfiguration) && safeProperty(rawConfiguration, 'networkId') !== networkId) {
       throw failure('WRONG_NETWORK');
     }
     const configuration = safeConfiguration(rawConfiguration, networkId);
-    if (!configuration) throw failure('CONNECTOR_ERROR');
+    if (!configuration) {
+      this.#emit({
+        stage: 'network_validation',
+        status: 'failed',
+        providerId: wallet.option.id,
+        networkId,
+        errorCode: 'CONNECTOR_ERROR',
+        ...configurationInspection,
+      });
+      throw failure('CONNECTOR_ERROR');
+    }
 
     await this.#waitForConnectedStatus(api, wallet, networkId, allowPolling);
     const session: ConnectedWalletSession = {
@@ -723,6 +863,7 @@ export class MidnightWalletConnector {
       status: 'succeeded',
       providerId: wallet.option.id,
       networkId,
+      ...configurationInspection,
     });
     return session;
   }
@@ -790,6 +931,10 @@ export class MidnightWalletConnector {
     const state = this.#connectedSessions.get(session);
     if (!state) throw toPublicWalletError(failure('PROVIDER_DISAPPEARED'));
     const wallet: DiscoveredWallet = {
+      providerIdentity: this.#providerIdentity(state.registryKey, state.candidate),
+      registryKeys: [state.registryKey],
+      aliasesShareObject: true,
+      aliasesShareConnect: true,
       registryKey: state.registryKey,
       option: {
         id: state.optionId,

@@ -93,6 +93,21 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeChecked();
   });
 
+  it('replaces the wallet list on refresh instead of retaining stale entries', async () => {
+    const staleWallet = compatibleWallet({ name: 'Stale Lace wrapper' });
+    const currentWallet = compatibleWallet({ id: 'wallet-2', name: 'lace' });
+    const connector = mockConnector();
+    vi.mocked(connector.discover).mockReturnValueOnce([staleWallet]).mockReturnValueOnce([currentWallet]);
+    renderPanel(connector);
+
+    expect(await screen.findByRole('radio', { name: /Stale Lace wrapper/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh wallets' }));
+
+    expect(await screen.findByRole('radio', { name: /^lace/ })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: /Stale Lace wrapper/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
+  });
+
   it('sanitizes a discovery exception and recovers by retrying discovery', async () => {
     const connector = mockConnector();
     vi.mocked(connector.discover)

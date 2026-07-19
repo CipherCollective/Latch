@@ -156,12 +156,19 @@ describe('MidnightWalletConnector discovery', () => {
     const fixture = connectedFixture();
     const validRaster = `data:image/png;base64,${'a'.repeat(64)}`;
     const name = `${'<script>steal()</script>\u0000\u202e'.repeat(8)}${'x'.repeat(120)}`;
-    const safe = wallet(name, fixture.api, { icon: validRaster });
-    const javascriptIcon = wallet('Remote icon', fixture.api, { icon: 'javascript:alert(1)' });
+    const safe = wallet(name, fixture.api, { icon: validRaster, rdns: 'dev.latch.safe' });
+    const javascriptIcon = wallet('Remote icon', fixture.api, {
+      icon: 'javascript:alert(1)',
+      rdns: 'dev.latch.javascript',
+    });
     const svgIcon = wallet('SVG icon', fixture.api, {
       icon: 'data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+',
+      rdns: 'dev.latch.svg',
     });
-    const remoteIcon = wallet('Tracker', fixture.api, { icon: 'https://tracker.invalid/icon.png' });
+    const remoteIcon = wallet('Tracker', fixture.api, {
+      icon: 'https://tracker.invalid/icon.png',
+      rdns: 'dev.latch.remote',
+    });
     const throwingMetadata = {
       get name() {
         throw new Error('secret wallet state');
@@ -212,6 +219,17 @@ describe('MidnightWalletConnector discovery', () => {
     });
   });
 
+  it('deduplicates registry aliases that reference the same provider object', () => {
+    const fixture = connectedFixture();
+    const lace = wallet('lace', fixture.api, { rdns: 'io.lace' });
+    const connector = new MidnightWalletConnector(() => ({
+      '1c30c60a-3684-4d51-b59d-408e13d6c781': lace,
+      'bcd0b6bc-48db-41d3-aea7-0ba197b25257': lace,
+    }));
+
+    expect(connector.discover()).toHaveLength(1);
+  });
+
   it.each([
     ['3.9.9', false],
     ['5.0.0', false],
@@ -237,7 +255,7 @@ describe('MidnightWalletConnector connection', () => {
     const firstFixture = connectedFixture();
     const secondFixture = connectedFixture();
     const first = wallet('First', firstFixture.api);
-    const second = wallet('Second', secondFixture.api);
+    const second = wallet('Second', secondFixture.api, { rdns: 'dev.latch.second' });
     const connector = new MidnightWalletConnector(() => ({ first, second }));
     const options = connector.discover();
 
@@ -302,6 +320,70 @@ describe('MidnightWalletConnector connection', () => {
     for (const call of fixture.sensitiveCalls) expect(call).not.toHaveBeenCalled();
   });
 
+  it('uses the current Lace alias and accepts the real direct API shape without hintUsage', async () => {
+    const getConnectionStatus = vi.fn().mockResolvedValue({ status: 'connected', networkId: 'preprod' });
+    const getConfiguration = vi.fn().mockResolvedValue({
+      indexerUri: 'https://indexer.invalid/',
+      indexerWsUri: 'wss://indexer.invalid/',
+      substrateNodeUri: 'https://node.invalid/',
+      proverServerUri: 'https://prover.invalid/',
+      networkId: 'preprod',
+    });
+    const laceApi = { getConnectionStatus, getConfiguration } as unknown as ConnectedAPI;
+    const staleConnect = vi.fn().mockResolvedValue({});
+    const currentConnect = vi.fn().mockResolvedValue(laceApi);
+    const staleWrapper = wallet('lace', laceApi, { rdns: 'io.lace', connect: staleConnect });
+    const currentWrapper = wallet('lace', laceApi, { rdns: 'io.lace', connect: currentConnect });
+    const diagnostics: WalletDiagnosticEvent[] = [];
+    const connector = new MidnightWalletConnector(
+      () => ({
+        '1c30c60a-3684-4d51-b59d-408e13d6c781': staleWrapper,
+        'bcd0b6bc-48db-41d3-aea7-0ba197b25257': currentWrapper,
+      }),
+      { diagnosticSink: (event) => diagnostics.push(event) },
+    );
+
+    const options = connector.discover();
+    expect(options).toHaveLength(1);
+    await expect(connector.connect(options[0]!.id)).resolves.toMatchObject({
+      snapshot: { connectionState: 'connected', networkId: 'preprod', walletName: 'lace' },
+    });
+
+    expect(staleConnect).not.toHaveBeenCalled();
+    expect(currentConnect).toHaveBeenCalledOnce();
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'discovery',
+        status: 'succeeded',
+        providerCount: 1,
+        registryAliasCount: 2,
+        aliasesShareObject: false,
+        aliasesShareConnect: false,
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'api_resolution',
+        status: 'succeeded',
+        apiSurface: 'direct',
+        hasConnectionStatus: true,
+        hasConfiguration: true,
+        hasHintUsage: false,
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'network_validation',
+        status: 'succeeded',
+        configurationNetworkMatches: true,
+        indexerUriScheme: 'https',
+        indexerWsUriScheme: 'wss',
+        substrateNodeUriScheme: 'https',
+        proverServerUriScheme: 'https',
+      }),
+    );
+  });
+
   it('emits fixed-schema browser diagnostics without wallet-controlled private data', async () => {
     const fixture = connectedFixture();
     const privateValue = 'mn_private_wallet_value_must_not_be_logged';
@@ -340,6 +422,19 @@ describe('MidnightWalletConnector connection', () => {
       'providerCount',
       'errorCode',
       'reactState',
+      'apiSurface',
+      'hasConnectionStatus',
+      'hasConfiguration',
+      'hasHintUsage',
+      'registryAliasCount',
+      'aliasesShareObject',
+      'aliasesShareConnect',
+      'hasConfigurationNetwork',
+      'configurationNetworkMatches',
+      'indexerUriScheme',
+      'indexerWsUriScheme',
+      'substrateNodeUriScheme',
+      'proverServerUriScheme',
     ]);
     for (const event of events) {
       expect(Object.keys(event).every((key) => allowedKeys.has(key))).toBe(true);
@@ -533,6 +628,7 @@ describe('MidnightWalletConnector connection', () => {
   it.each([
     { ...configuration(), indexerUri: 'http://indexer.invalid' },
     { ...configuration(), indexerWsUri: 'ws://indexer.invalid' },
+    { ...configuration(), substrateNodeUri: 'http://node.invalid' },
     { ...configuration(), substrateNodeUri: 'wss://user:secret@node.invalid' },
   ])('rejects unsafe Preprod service configuration without disclosing it', async (unsafeConfig) => {
     const fixture = connectedFixture({ config: unsafeConfig });
