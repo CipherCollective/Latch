@@ -18,8 +18,8 @@ import type {
 import { Moat, createMoatPrivateState, type MoatPrivateState, witnesses } from '@latch/contract';
 
 import { randomBytes32 } from './commitments.js';
-import type { NetworkEndpoints } from './networks.js';
-import { PREPROD_ENDPOINTS } from './networks.js';
+import type { BrowserNetworkEndpoints } from './browser-networks.js';
+import { PREPROD_ENDPOINTS } from './browser-networks.js';
 import { createInMemoryPrivateStateProvider } from './private-state-provider.js';
 
 export { PREPROD_ENDPOINTS };
@@ -31,7 +31,7 @@ export type MoatProviders = MidnightProviders<MoatCircuitId, MoatPrivateStateId,
 export type WalletAndMidnightProvider = WalletProvider & MidnightProvider;
 
 export type CreateMoatProvidersInput = {
-  endpoints: NetworkEndpoints;
+  endpoints: BrowserNetworkEndpoints;
   walletAndMidnightProvider: WalletAndMidnightProvider;
   zkConfigProvider: ZKConfigProvider<MoatCircuitId>;
   privateStateProvider?: MoatProviders['privateStateProvider'];
