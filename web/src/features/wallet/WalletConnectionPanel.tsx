@@ -25,14 +25,13 @@ const errorCopy: Record<PublicWalletError['code'], string> = {
   WALLET_DISCOVERY_FAILED:
     'Latch could not inspect the wallet connectors in this browser. Check the extension, then retry discovery.',
   WALLET_LOCKED: 'Unlock and sync your wallet, then retry the connection.',
-  WALLET_REJECTED: 'The connection request was declined. Nothing was submitted. You can retry whenever you are ready.',
+  USER_REJECTED: 'The connection request was declined. Nothing was submitted. You can retry whenever you are ready.',
   WRONG_NETWORK: 'Latch requested Preprod. Switch your wallet to Preprod, then retry the connection.',
+  AUTHORIZATION_TIMEOUT: 'Wallet approval did not finish in time. Open Lace, confirm the request, then retry.',
+  PROVIDER_DISAPPEARED: 'Lace changed or removed its provider. Retry to rediscover the fresh wallet session.',
+  CONNECTOR_ERROR: 'Lace returned an unexpected connector response. Unlock Lace, then retry the connection.',
   INCOMPATIBLE_WALLET:
     'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the deterministic demo.',
-  PROOF_FAILED: 'Latch could not confirm a wallet connection. No proof or transaction was submitted.',
-  SUBMISSION_FAILED: 'Latch could not confirm a wallet connection. No transaction is being claimed.',
-  NOT_FOUND: 'The selected wallet is no longer available. Refresh the wallet list and choose again.',
-  UNKNOWN: 'Latch could not confirm a wallet connection. Check the wallet, then retry or refresh the list.',
 };
 
 function safeIconUrl(value: string | undefined): string | null {
@@ -182,12 +181,15 @@ export function WalletConnectionPanel({
         const refreshedSession = await connector.revalidate(connectedSession);
         if (!active || epoch !== operationEpoch.current) return;
         setConnectedSession(refreshedSession);
+        connector.reportReactState('connected');
         onConnectedRef.current(refreshedSession);
       } catch (error) {
         if (!active || epoch !== operationEpoch.current) return;
+        const publicError = toPublicWalletError(error);
         setConnectedSession(null);
-        setConnectionError(toPublicWalletError(error));
+        setConnectionError(publicError);
         setPhase('error');
+        connector.reportReactState('disconnected', publicError.code);
         onDisconnectedRef.current();
       } finally {
         validationInFlight.current = false;
@@ -213,17 +215,21 @@ export function WalletConnectionPanel({
     const epoch = ++operationEpoch.current;
     setConnectionError(null);
     setPhase('connecting');
+    connector.reportReactState('connecting');
 
     try {
       const session = await connector.connect(selectedWallet.id, DEFAULT_REAL_NETWORK);
       if (epoch !== operationEpoch.current) return;
       setConnectedSession(session);
       setPhase('connected');
+      connector.reportReactState('connected');
       onConnectedRef.current(session);
     } catch (error) {
       if (epoch !== operationEpoch.current) return;
-      setConnectionError(toPublicWalletError(error));
+      const publicError = toPublicWalletError(error);
+      setConnectionError(publicError);
       setPhase('error');
+      connector.reportReactState('error', publicError.code);
     } finally {
       if (epoch === operationEpoch.current) connectionInFlight.current = false;
     }
@@ -280,7 +286,9 @@ export function WalletConnectionPanel({
               : null}
             {phase === 'connecting' ? `Waiting for ${selectedWallet?.name ?? 'the selected wallet'} on Preprod.` : null}
             {phase === 'connected' ? `${connectedWalletName} connected on Preprod.` : null}
-            {phase === 'error' ? 'Wallet connection was not confirmed.' : null}
+            {phase === 'error'
+              ? `Wallet connection stopped: ${connectionError?.code.replaceAll('_', ' ') ?? 'CONNECTOR ERROR'}.`
+              : null}
           </div>
 
           {hasSelectableWallet && phase !== 'connected' ? (
