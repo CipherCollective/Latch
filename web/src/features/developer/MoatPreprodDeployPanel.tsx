@@ -15,7 +15,6 @@ type MoatPreprodDeployPanelProps = {
 async function copyText(value: string): Promise<void> {
   await navigator.clipboard.writeText(value);
 }
-
 export function MoatPreprodDeployPanel({
   session,
   connectedApi,
