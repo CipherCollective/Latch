@@ -19,6 +19,13 @@ type PanelPhase = 'discovering' | 'ready' | 'connecting' | 'error' | 'connected'
 type PublicWalletError = ReturnType<typeof toPublicWalletError>;
 
 const NETWORK_LABEL = 'Preprod';
+const PREPROD_CONTRACT_ADDRESS = '3f45a282f188b82e5e8b029825a9057e2f3a295cd48b015eff73949eff8d8a25';
+const PREPROD_DEPLOYMENT_TX_ID =
+  '002d6d4d1f5f3965db970e14071947b895ca5a4aed76f5a0e5c8ba29384e333d64';
+
+async function copyDeploymentProof(value: string): Promise<void> {
+  await navigator.clipboard.writeText(value);
+}
 
 const errorCopy: Record<PublicWalletError['code'], string> = {
   WALLET_MISSING: 'No compatible Midnight wallet was found. Install or enable a wallet, then refresh this list.',
@@ -31,7 +38,7 @@ const errorCopy: Record<PublicWalletError['code'], string> = {
   PROVIDER_DISAPPEARED: 'Lace changed or removed its provider. Retry to rediscover the fresh wallet session.',
   CONNECTOR_ERROR: 'Lace returned an unexpected connector response. Unlock Lace, then retry the connection.',
   INCOMPATIBLE_WALLET:
-    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the deterministic demo.',
+    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the interactive policy simulator.',
 };
 
 function safeIconUrl(value: string | undefined): string | null {
@@ -355,13 +362,61 @@ export function WalletConnectionPanel({
           ) : null}
 
           {phase === 'connected' && connectedSession ? (
-            <div className="wallet-connected-summary" role="status" aria-live="polite" aria-atomic="true">
-              <strong>{connectedWalletName}</strong>
-              <span>Connected to {NETWORK_LABEL}</span>
-              <p>
-                The core contract adapter is waiting for a verified teammate handoff. No capability or transaction was
-                submitted, and Latch will not proceed from this connection screen.
-              </p>
+            <div className="wallet-connected-handoff">
+              <div className="wallet-connected-summary" role="status" aria-live="polite" aria-atomic="true">
+                <strong>{connectedWalletName}</strong>
+                <span>Connected to {NETWORK_LABEL}</span>
+                <p>
+                  Your Lace wallet is connected on Preprod, and the MOAT contract is live. Continue into the
+                  interactive policy simulator to explore the complete capability flow.
+                </p>
+              </div>
+
+              <details className="wallet-deployment-proof">
+                <summary>View Preprod deployment proof</summary>
+                <div className="wallet-deployment-proof-content">
+                  <p>
+                    <strong>Deployment proof only.</strong> This confirms the MOAT contract deployment; it is not a live
+                    capability transaction.
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Network</dt>
+                      <dd>Midnight Preprod</dd>
+                    </div>
+                    <div>
+                      <dt>Status</dt>
+                      <dd>Contract deployed</dd>
+                    </div>
+                    <div>
+                      <dt>Contract address</dt>
+                      <dd>
+                        <code>{PREPROD_CONTRACT_ADDRESS}</code>
+                        <button
+                          className="button button-ghost-light"
+                          type="button"
+                          onClick={() => void copyDeploymentProof(PREPROD_CONTRACT_ADDRESS)}
+                        >
+                          Copy contract address
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Transaction ID</dt>
+                      <dd>
+                        <code>{PREPROD_DEPLOYMENT_TX_ID}</code>
+                        <button
+                          className="button button-ghost-light"
+                          type="button"
+                          onClick={() => void copyDeploymentProof(PREPROD_DEPLOYMENT_TX_ID)}
+                        >
+                          Copy transaction ID
+                        </button>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </details>
             </div>
           ) : null}
 
@@ -398,6 +453,11 @@ export function WalletConnectionPanel({
                 {isConnecting ? 'Waiting for wallet…' : `Connect on ${NETWORK_LABEL}`}
               </button>
             ) : null}
+            {phase === 'connected' ? (
+              <button className="button button-primary" type="button" onClick={() => leavePanel(onUseDemo)}>
+                Launch policy simulator
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -405,7 +465,7 @@ export function WalletConnectionPanel({
           <div className="privacy-preview-header">
             <div>
               <span className="eyebrow">Available in every state</span>
-              <h2 id="wallet-demo-title">Use the deterministic demo</h2>
+              <h2 id="wallet-demo-title">Interactive policy simulator</h2>
             </div>
           </div>
           <p className="fixture-note">
@@ -413,7 +473,7 @@ export function WalletConnectionPanel({
             on-chain transactions.
           </p>
           <button className="button button-secondary" type="button" onClick={() => leavePanel(onUseDemo)}>
-            Use deterministic demo
+            Open policy simulator
           </button>
         </aside>
       </div>

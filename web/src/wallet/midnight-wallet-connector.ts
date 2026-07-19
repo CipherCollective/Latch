@@ -253,7 +253,12 @@ function safeEndpoint(value: unknown, ...protocols: Array<'https:' | 'wss:'>): s
 
   try {
     const endpoint = new URL(value);
-    if (!protocols.includes(endpoint.protocol as 'https:' | 'wss:') || !endpoint.hostname || endpoint.username || endpoint.password) {
+    if (
+      !protocols.includes(endpoint.protocol as 'https:' | 'wss:') ||
+      !endpoint.hostname ||
+      endpoint.username ||
+      endpoint.password
+    ) {
       return undefined;
     }
     return endpoint.toString();
@@ -948,6 +953,16 @@ export class MidnightWalletConnector {
       this.#invalidate(session, publicError.code);
       throw publicError;
     }
+  }
+
+  /**
+   * Returns the connected capability only for an already-confirmed in-memory
+   * session. It is deliberately not serialized or stored in React state.
+   */
+  getConnectedApi(session: ConnectedWalletSession): ConnectedAPI {
+    const connected = this.#connectedSessions.get(session);
+    if (!connected) throw toPublicWalletError(failure('PROVIDER_DISAPPEARED'));
+    return connected.api;
   }
 
   reportReactState(

@@ -258,6 +258,48 @@ h1 {
   gap: 12px;
 }
 
+.simulation-honesty-label {
+  width: fit-content;
+  margin-top: 14px;
+  border: 1px solid rgb(175 161 255 / 0.45);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: #c8beff;
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.midnight-proof-strip {
+  margin-top: 24px;
+  border-left: 2px solid #7962ff;
+  padding-left: 14px;
+}
+
+.midnight-proof-strip strong {
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.midnight-proof-strip ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.midnight-proof-strip li {
+  color: #aab5c6;
+  font-size: 0.7rem;
+}
+
+.midnight-proof-strip li::before {
+  content: '\2713';
+  margin-right: 6px;
+  color: #8ee9ca;
+}
+
 .button {
   min-height: 48px;
   border: 1px solid transparent;
@@ -887,6 +929,137 @@ h1 {
   align-items: start;
 }
 
+.simulator-contract-map,
+.simulator-completion {
+  border: 1px solid rgb(175 161 255 / 0.34);
+  border-radius: var(--radius-lg);
+  background: rgb(12 27 46 / 0.9);
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.simulator-contract-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.simulator-contract-map h2,
+.simulator-completion h2 {
+  margin: 6px 0 8px;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.simulator-contract-map p,
+.simulator-completion-heading p {
+  margin: 0;
+  color: #aab5c6;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.simulator-contract-map dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.simulator-contract-map dl > div {
+  border: 1px solid #31435d;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.simulator-contract-map dt {
+  color: #aab5c6;
+  font-size: 0.66rem;
+}
+
+.simulator-contract-map dd {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 0.72rem;
+}
+
+.simulator-contract-map code {
+  color: #8ee9ca;
+}
+
+.simulator-completion {
+  margin-top: 18px;
+}
+
+.simulator-completion-heading {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.simulator-completion-heading > svg {
+  color: #8ee9ca;
+}
+
+.simulator-completion-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 18px;
+  margin: 22px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.simulator-completion-list li {
+  color: #dfe7f2;
+  font-size: 0.76rem;
+}
+
+.simulator-completion-list li::before {
+  content: '\2713';
+  margin-right: 8px;
+  color: #8ee9ca;
+}
+
+.simulator-deployment-proof {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.simulator-deployment-proof > div {
+  min-width: 0;
+  border: 1px solid #31435d;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.simulator-deployment-proof dt {
+  color: #aab5c6;
+  font-size: 0.66rem;
+}
+
+.simulator-deployment-proof dd {
+  margin: 7px 0 10px;
+}
+
+.simulator-deployment-proof code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 0.67rem;
+}
+
+.simulator-deployment-proof button {
+  border: 0;
+  background: transparent;
+  color: #afa1ff;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 760;
+}
+
 .panel-light {
   color-scheme: light;
   border: 1px solid #d6dce8;
@@ -1292,6 +1465,72 @@ h1 {
   color: #365b50;
   font-size: 0.75rem;
   line-height: 1.55;
+}
+
+.wallet-connected-handoff {
+  display: grid;
+  gap: 12px;
+}
+
+.wallet-deployment-proof {
+  border: 1px solid #c6cedc;
+  border-radius: 12px;
+  background: #f7f8fb;
+  color: #354158;
+  padding: 14px 16px;
+}
+
+.wallet-deployment-proof summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 780;
+}
+
+.wallet-deployment-proof-content {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.wallet-deployment-proof-content > p {
+  margin: 0;
+  color: #59677d;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.wallet-deployment-proof dl,
+.wallet-deployment-proof dl > div {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.wallet-deployment-proof dl {
+  gap: 12px;
+}
+
+.wallet-deployment-proof dt {
+  color: #59677d;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.wallet-deployment-proof dd {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: #26344b;
+  font-size: 0.74rem;
+}
+
+.wallet-deployment-proof code {
+  overflow-wrap: anywhere;
+  font-size: 0.68rem;
+}
+
+.wallet-deployment-proof .button {
+  justify-self: start;
 }
 
 .wallet-demo-fallback .button {
@@ -2226,6 +2465,7 @@ h1 {
 
   .builder-grid,
   .dashboard-grid,
+  .simulator-contract-map,
   .authorization-grid,
   .observer-workspace {
     grid-template-columns: 1fr;
@@ -2267,6 +2507,12 @@ h1 {
   .mode-actions,
   .button {
     width: 100%;
+  }
+
+  .simulator-contract-map dl,
+  .simulator-completion-list,
+  .simulator-deployment-proof {
+    grid-template-columns: 1fr;
   }
 
   .workflow-section {
