@@ -47,37 +47,48 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
     getCoinPublicKey: () => shieldedAddresses.shieldedCoinPublicKey as never,
     getEncryptionPublicKey: () => shieldedAddresses.shieldedEncryptionPublicKey as never,
     async balanceTx(transaction: Parameters<WalletAndMidnightProvider['balanceTx']>[0]) {
+      let serialized: string;
+      try {
+        serialized = toHex(transaction.serialize());
+      } catch (error) {
+        throw new DeveloperRouteFailure('transaction_serialization', error);
+      }
+
       let balanced: { tx?: unknown };
       try {
-        balanced = await api.balanceUnsealedTransaction(toHex(transaction.serialize()));
+        balanced = await api.balanceUnsealedTransaction(serialized);
       } catch (error) {
-        throw new DeveloperRouteFailure('deployment_submission', error);
+        throw new DeveloperRouteFailure('wallet_balance', error);
       }
       if (typeof balanced.tx !== 'string') {
-        throw new DeveloperRouteFailure('deployment_submission', new TypeError('missing balanced transaction'));
+        throw new DeveloperRouteFailure('wallet_balance', new TypeError('missing balanced transaction'));
       }
       try {
         return Transaction.deserialize('signature', 'proof', 'binding', fromHex(balanced.tx)) as never;
       } catch (error) {
         if (error instanceof DeveloperRouteFailure) throw error;
-        throw new DeveloperRouteFailure('deployment_submission', error);
+        throw new DeveloperRouteFailure('balanced_transaction_deserialization', error);
       }
     },
     async submitTx(transaction: Parameters<WalletAndMidnightProvider['submitTx']>[0]) {
-      const serialized = toHex(transaction.serialize());
-      let submitted: unknown;
+      let serialized: string;
+      let txId: string | undefined;
       try {
-        submitted = await (api.submitTransaction as (tx: string) => Promise<unknown>)(serialized);
+        serialized = toHex(transaction.serialize());
+        txId = transaction.identifiers()[0];
       } catch (error) {
-        throw new DeveloperRouteFailure('deployment_submission', error);
+        throw new DeveloperRouteFailure('transaction_serialization', error);
       }
-      if (typeof submitted === 'string' && submitted) return submitted as never;
-      if (submitted && typeof submitted === 'object') {
-        const candidate = submitted as { transactionId?: unknown; id?: unknown };
-        if (typeof candidate.transactionId === 'string' && candidate.transactionId) return candidate.transactionId as never;
-        if (typeof candidate.id === 'string' && candidate.id) return candidate.id as never;
+      if (!txId) {
+        throw new DeveloperRouteFailure('transaction_serialization', new TypeError('missing transaction identifier'));
       }
-      throw new DeveloperRouteFailure('deployment_submission', new TypeError('missing transaction id'));
+      try {
+        // Connector API 4.0.1 resolves with void, so preserve the ledger identifier before submission.
+        await api.submitTransaction(serialized);
+      } catch (error) {
+        throw new DeveloperRouteFailure('wallet_submission', error);
+      }
+      return txId as never;
     },
   };
 }
