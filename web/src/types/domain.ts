@@ -125,12 +125,14 @@ export interface PublicClientError {
     | 'WALLET_MISSING'
     | 'WALLET_DISCOVERY_FAILED'
     | 'WALLET_LOCKED'
-    | 'WALLET_REJECTED'
+    | 'USER_REJECTED'
     | 'WRONG_NETWORK'
+    | 'AUTHORIZATION_TIMEOUT'
+    | 'PROVIDER_DISAPPEARED'
+    | 'CONNECTOR_ERROR'
     | 'INCOMPATIBLE_WALLET'
     | 'PROOF_FAILED'
     | 'SUBMISSION_FAILED'
-    | 'NOT_FOUND'
     | 'UNKNOWN';
   message: string;
   retryable: boolean;

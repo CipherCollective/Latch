@@ -48,6 +48,7 @@ function mockConnector(wallets: WalletOption[] = []) {
     discover: vi.fn(() => wallets),
     connect: vi.fn<MidnightWalletConnector['connect']>(),
     revalidate: vi.fn<MidnightWalletConnector['revalidate']>((session) => Promise.resolve(session)),
+    reportReactState: vi.fn<MidnightWalletConnector['reportReactState']>(),
   } as unknown as MidnightWalletConnector;
 }
 
@@ -193,9 +194,12 @@ describe('WalletConnectionPanel', () => {
   });
 
   it.each([
-    ['WALLET_REJECTED', 'connection request was declined'],
+    ['USER_REJECTED', 'connection request was declined'],
     ['WALLET_LOCKED', 'Unlock and sync your wallet'],
     ['WRONG_NETWORK', 'Latch requested Preprod'],
+    ['AUTHORIZATION_TIMEOUT', 'approval did not finish in time'],
+    ['PROVIDER_DISAPPEARED', 'changed or removed its provider'],
+    ['CONNECTOR_ERROR', 'unexpected connector response'],
     ['INCOMPATIBLE_WALLET', 'connector version is not supported'],
   ] as const)('shows a safe %s error with recovery', async (code, expectedCopy) => {
     const connector = mockConnector([compatibleWallet()]);
@@ -215,7 +219,7 @@ describe('WalletConnectionPanel', () => {
     const session = connectedSession();
     const connector = mockConnector([compatibleWallet()]);
     vi.mocked(connector.connect)
-      .mockRejectedValueOnce(publicError('WALLET_REJECTED'))
+      .mockRejectedValueOnce(publicError('USER_REJECTED'))
       .mockResolvedValueOnce(session);
     const handlers = renderPanel(connector);
 
@@ -228,6 +232,8 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByText(/No capability or transaction was submitted/i)).toBeVisible();
     expect(screen.queryByRole('button', { name: /continue|create capability|submit transaction/i })).not.toBeInTheDocument();
     expect(handlers.onConnected).toHaveBeenCalledWith(session);
+    expect(connector.reportReactState).toHaveBeenCalledWith('connecting');
+    expect(connector.reportReactState).toHaveBeenLastCalledWith('connected');
   });
 
   it('downgrades a stale connected session when focus revalidation fails', async () => {
@@ -245,6 +251,7 @@ describe('WalletConnectionPanel', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Connection needs attention' })).toHaveFocus();
     expect(screen.getByRole('alert')).toHaveTextContent('Switch your wallet to Preprod');
     expect(handlers.onDisconnected).toHaveBeenCalledOnce();
+    expect(connector.reportReactState).toHaveBeenLastCalledWith('disconnected', 'WRONG_NETWORK');
     expect(screen.queryByText('Connected to Preprod')).not.toBeInTheDocument();
   });
 
