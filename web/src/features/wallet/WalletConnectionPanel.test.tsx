@@ -74,7 +74,7 @@ describe('WalletConnectionPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh wallets' }));
     await waitFor(() => expect(connector.discover).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole('button', { name: 'Use deterministic demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open policy simulator' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(handlers.onUseDemo).toHaveBeenCalledTimes(1);
     expect(handlers.onBack).toHaveBeenCalledTimes(1);
@@ -187,7 +187,7 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeVisible();
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Waiting for wallet…' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Use deterministic demo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open policy simulator' })).toBeEnabled();
 
     pending.resolve(connectedSession());
     await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' });
@@ -227,10 +227,10 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(expectedCopy);
     expect(screen.getByRole('button', { name: 'Retry connection' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Refresh wallets' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Use deterministic demo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open policy simulator' })).toBeEnabled();
   });
 
-  it('retries a declined connection and launches the deterministic authorization demo', async () => {
+  it('retries a declined connection and launches the interactive policy simulator', async () => {
     const session = connectedSession();
     const connector = mockConnector([compatibleWallet()]);
     vi.mocked(connector.connect)
@@ -244,7 +244,7 @@ describe('WalletConnectionPanel', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' })).toHaveFocus();
     expect(screen.getByText('Connected to Preprod')).toBeVisible();
     expect(screen.getByText(/Your Lace wallet is connected on Preprod, and the MOAT contract is live/i)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Launch authorization demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Launch policy simulator' }));
     expect(handlers.onUseDemo).toHaveBeenCalledOnce();
     expect(handlers.onConnected).toHaveBeenCalledWith(session);
     expect(connector.reportReactState).toHaveBeenCalledWith('connecting');
@@ -339,7 +339,7 @@ describe('WalletConnectionPanel', () => {
     const handlers = renderPanel(connector);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Connect on Preprod' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Use deterministic demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open policy simulator' }));
     pending.resolve(connectedSession());
     await Promise.resolve();
 

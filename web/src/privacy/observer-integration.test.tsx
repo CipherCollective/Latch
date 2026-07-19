@@ -51,7 +51,7 @@ function renderApp(client = new MockMoatClient()) {
 }
 
 async function createDefaultCapability() {
-  fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+  fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
   fireEvent.click(screen.getByRole('button', { name: /commit private capability/i }));
   await screen.findByRole('heading', { name: 'Agent activity console' });
 }

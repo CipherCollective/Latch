@@ -26,14 +26,19 @@ describe('Latch application shell', () => {
     expect(screen.getByRole('heading', { name: 'Delegate' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Prove' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Spend' })).toBeVisible();
+    expect(screen.getByText(/Local simulation .* Contract-equivalent logic/)).toBeVisible();
+    expect(screen.getByText('Built on Midnight')).toBeVisible();
+    for (const proofPoint of ['Compact contract', '3 private circuits', 'Live on Preprod', 'Lace wallet', 'Revocable capabilities', 'Automated test coverage']) {
+      expect(screen.getByText(proofPoint)).toBeVisible();
+    }
   });
 
-  it('labels deterministic demo mode without claiming a wallet connection', () => {
+  it('labels the interactive policy simulator without claiming a wallet connection', () => {
     renderApp();
 
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
 
-    expect(screen.getByText('Demo mode')).toBeVisible();
+    expect(screen.getByText('Policy simulator')).toBeVisible();
     expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
     expect(screen.getByText(/demo mode generates stable sha-256 fixtures/i)).toBeVisible();
     expect(screen.queryByText(/^connected$/i)).not.toBeInTheDocument();
@@ -49,8 +54,8 @@ describe('Latch application shell', () => {
     expect(screen.getByText(/install or enable a midnight wallet extension/i)).toBeVisible();
     expect(screen.queryByText(/wallet connected/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
-    expect(screen.getByText('Demo mode')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /open policy simulator/i }));
+    expect(screen.getByText('Policy simulator')).toBeVisible();
     expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
   });
 
@@ -123,7 +128,7 @@ describe('Latch application shell', () => {
   it('creates, displays, and revokes the default private capability fixture', async () => {
     renderApp();
 
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
 
     expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
     expect(screen.getByLabelText(/agent name/i)).toHaveValue('Research Agent A');
@@ -148,7 +153,7 @@ describe('Latch application shell', () => {
 
   it('prevents committing an invalid amount relationship and preserves the edits', () => {
     renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
 
     const limit = screen.getByLabelText(/per-transaction limit/i);
     fireEvent.change(limit, { target: { value: '51' } });
@@ -159,11 +164,15 @@ describe('Latch application shell', () => {
     expect(limit).toHaveValue('51');
   });
 
-  it('runs the approved, rejected, replay, receipt-verification, and reset demo path', async () => {
+  it('runs the judge-facing simulator path and renders the final technical receipt', async () => {
     renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
     fireEvent.click(screen.getByRole('button', { name: /commit private capability/i }));
     await screen.findByRole('heading', { name: 'Agent activity console' });
+    expect(screen.getByRole('heading', { name: /Local simulation .* Contract-equivalent logic/ })).toBeVisible();
+    expect(screen.getByText('createCapability')).toBeVisible();
+    expect(screen.getAllByText('authorizeSpend')).toHaveLength(2);
+    expect(screen.getByText('revokeCapability')).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Run approved request' }));
 
@@ -188,14 +197,35 @@ describe('Latch application shell', () => {
     expect(screen.getByText('38')).toBeVisible();
     expect(screen.getByText('2')).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reset demo' }));
+    fireEvent.click(screen.getByRole('button', { name: /revoke capability/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm revoke/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Interactive policy simulator complete' })).toBeVisible();
+    for (const outcome of [
+      'Private spending policy created',
+      'Valid request authorized',
+      'Invalid request rejected',
+      'Capability revoked',
+      'Post-revocation request rejected',
+      'MOAT contract deployed on Midnight Preprod',
+    ]) {
+      expect(screen.getByText(outcome)).toBeVisible();
+    }
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy contract address' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy transaction ID' }));
+    expect(writeText).toHaveBeenNthCalledWith(1, '3f45a282f188b82e5e8b029825a9057e2f3a295cd48b015eff73949eff8d8a25');
+    expect(writeText).toHaveBeenNthCalledWith(2, '002d6d4d1f5f3965db970e14071947b895ca5a4aed76f5a0e5c8ba29384e333d64');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restart simulator' }));
     expect(screen.getByRole('heading', { level: 1, name: /set the private gate/i })).toBeVisible();
     expect(screen.queryByText('Receipt verification passed.')).not.toBeInTheDocument();
   });
 
   it('opens the owner-only structured request dialog and restores focus when closed', async () => {
     renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /use deterministic demo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /interactive policy simulator/i }));
     fireEvent.click(screen.getByRole('button', { name: /commit private capability/i }));
     await screen.findByRole('heading', { name: 'Agent activity console' });
 

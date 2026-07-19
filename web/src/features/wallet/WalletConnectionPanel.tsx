@@ -38,7 +38,7 @@ const errorCopy: Record<PublicWalletError['code'], string> = {
   PROVIDER_DISAPPEARED: 'Lace changed or removed its provider. Retry to rediscover the fresh wallet session.',
   CONNECTOR_ERROR: 'Lace returned an unexpected connector response. Unlock Lace, then retry the connection.',
   INCOMPATIBLE_WALLET:
-    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the deterministic demo.',
+    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the interactive policy simulator.',
 };
 
 function safeIconUrl(value: string | undefined): string | null {
@@ -368,7 +368,7 @@ export function WalletConnectionPanel({
                 <span>Connected to {NETWORK_LABEL}</span>
                 <p>
                   Your Lace wallet is connected on Preprod, and the MOAT contract is live. Continue into the
-                  deterministic authorization demo to explore the complete capability flow.
+                  interactive policy simulator to explore the complete capability flow.
                 </p>
               </div>
 
@@ -455,7 +455,7 @@ export function WalletConnectionPanel({
             ) : null}
             {phase === 'connected' ? (
               <button className="button button-primary" type="button" onClick={() => leavePanel(onUseDemo)}>
-                Launch authorization demo
+                Launch policy simulator
               </button>
             ) : null}
           </div>
@@ -465,7 +465,7 @@ export function WalletConnectionPanel({
           <div className="privacy-preview-header">
             <div>
               <span className="eyebrow">Available in every state</span>
-              <h2 id="wallet-demo-title">Use the deterministic demo</h2>
+              <h2 id="wallet-demo-title">Interactive policy simulator</h2>
             </div>
           </div>
           <p className="fixture-note">
@@ -473,7 +473,7 @@ export function WalletConnectionPanel({
             on-chain transactions.
           </p>
           <button className="button button-secondary" type="button" onClick={() => leavePanel(onUseDemo)}>
-            Use deterministic demo
+            Open policy simulator
           </button>
         </aside>
       </div>
