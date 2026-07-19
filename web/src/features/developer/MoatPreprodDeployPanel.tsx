@@ -31,6 +31,9 @@ export function MoatPreprodDeployPanel({
   const [indexerNotice, setIndexerNotice] = useState<string | null>(null);
   const inFlight = useRef(false);
 
+  const submissionMustBeChecked =
+    error?.walletErrorCode === 'AMBIGUOUS_SUBMISSION' || error?.walletErrorCode === 'ALREADY_SUBMITTED';
+
   const canDeploy =
     session?.snapshot.mode === 'real' &&
     session.snapshot.connectionState === 'connected' &&
@@ -39,7 +42,7 @@ export function MoatPreprodDeployPanel({
     connectedApi !== null;
 
   const startDeployment = async () => {
-    if (inFlight.current || phase === 'deploying') return;
+    if (inFlight.current || phase === 'deploying' || submissionMustBeChecked) return;
     if (!canDeploy) {
       setError(developerRouteDiagnostic('deployment_precondition', new Error('precondition')));
       setPhase('error');
@@ -110,7 +113,7 @@ export function MoatPreprodDeployPanel({
             className="button button-primary"
             type="button"
             onClick={() => void startDeployment()}
-            disabled={!canDeploy || phase === 'deploying' || result !== null}
+            disabled={!canDeploy || phase === 'deploying' || result !== null || submissionMustBeChecked}
           >
             {phase === 'deploying' ? 'Deploying Moat contract on Preprod…' : 'Deploy Moat contract on Preprod'}
           </button>
