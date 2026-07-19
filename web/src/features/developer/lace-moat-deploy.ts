@@ -1,6 +1,5 @@
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { Transaction } from '@midnight-ntwrk/ledger-v8';
-import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import {
   PREPROD_ENDPOINTS,
   createMoatProviders,
@@ -11,6 +10,7 @@ import {
 } from '../../../../api/src/browser.ts';
 
 import type { ConnectedWalletSession } from '../../wallet/midnight-wallet-connector';
+import { createBrowserZkConfigProvider } from './browser-zk-provider';
 import { DeveloperRouteFailure } from './developer-route-diagnostics';
 
 export type MoatDeploymentResult = {
@@ -113,14 +113,7 @@ export async function deployMoatWithLace(
     throw new DeveloperRouteFailure('deployment_precondition', error);
   }
 
-  let zkConfigProvider: FetchZkConfigProvider<MoatCircuitId>;
-  try {
-    zkConfigProvider = new FetchZkConfigProvider<MoatCircuitId>(
-      import.meta.env.VITE_ZK_ASSET_BASE_URL ?? '/zk/moat/',
-    );
-  } catch (error) {
-    throw new DeveloperRouteFailure('zk_provider_initialization', error);
-  }
+  const zkConfigProvider = createBrowserZkConfigProvider<MoatCircuitId>();
 
   let providers: ReturnType<typeof createMoatProviders>;
   try {
