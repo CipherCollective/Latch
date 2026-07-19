@@ -36,7 +36,7 @@
     "local:logs": "docker compose logs -f",
     "local:proof": "docker compose up -d proof-server",
     "deploy:local": "npm run prepare:contract && npm run build --workspace @latch/api && npm run deploy:local --workspace @latch/api",
-    "deploy:preprod": "npm run prepare:contract && npm run build --workspace @latch/api && npm run deploy:preprod --workspace @latch/api"
+    "deploy:lace": "npm run prepare:contract && npm run sync:zk-assets && npm run build --workspace @latch/api && node ./scripts/print-lace-deploy.mjs"
   },
   "engines": {
     "node": ">=22.13.0 <23"

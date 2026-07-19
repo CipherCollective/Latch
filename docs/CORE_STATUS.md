@@ -91,26 +91,56 @@ npm run sync:zk-assets
 
 Serves managed keys/zkir at **`/zk/moat/`** (`web/public/zk/moat`). Atharv pairs `FetchZkConfigProvider` with that base URL.
 
-## Low-level Preprod deploy helper (`@latch/api`)
+## Preprod deploy — Lace browser (canonical)
 
-Prefer for Lace/1AM browser deploy (avoids `deployContract` indexer hang):
+**One prep command (repo root, no Docker/WSL required if Compact artifacts already exist):**
+
+```bash
+npm run deploy:lace
+```
+
+That prepares contract + syncs `/zk/moat/` + builds `@latch/api` and prints the Lace snippet.
+
+**Exact browser call once Lace providers exist** (avoids `deployContract` indexer hang):
 
 ```ts
+const { contractAddress, txId } = await deployMoatContractLowLevel(providers);
+```
+
+Full wiring:
+
+```ts
+import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import {
   PREPROD_ENDPOINTS,
   createMoatProviders,
   deployMoatContractLowLevel,
   waitForMoatContract,
-  joinMoatContract,
-  createConfiguredMoatClient,
-  makeMoatCompiledContractBrowser,
 } from '@latch/api';
 
-// providers = createMoatProviders({ endpoints: PREPROD_ENDPOINTS, walletAndMidnightProvider, zkConfigProvider: fetchZk })
-const { contractAddress, txId } = await deployMoatContractLowLevel(providers); // useFileAssets defaults false
+const zk = new FetchZkConfigProvider(
+  import.meta.env.VITE_ZK_ASSET_BASE_URL ?? '/zk/moat/',
+);
+
+const providers = createMoatProviders({
+  endpoints: {
+    ...PREPROD_ENDPOINTS,
+    // prefer Lace session.configuration URIs when present
+  },
+  walletAndMidnightProvider, // Atharv: Lace ConnectedAPI → WalletProvider & MidnightProvider
+  zkConfigProvider: zk,
+});
+
+const { contractAddress, txId } = await deployMoatContractLowLevel(providers);
 await waitForMoatContract(providers, contractAddress); // optional
-// VITE_MOAT_CONTRACT_ADDRESS = contractAddress
+// → set VITE_MOAT_CONTRACT_ADDRESS=<contractAddress>
 ```
+
+Faucet: https://faucet.preprod.midnight.network/
+
+**[CORE FACT REQUIRED]** Preprod `VITE_MOAT_CONTRACT_ADDRESS`: fill after Lace `deployMoatContractLowLevel` succeeds.
+
+Do **not** run `npm run deploy:preprod` / WalletFacade full Preprod sync on Windows (OOM / multi-hour hang).
 
 ## Deploy (undeployed) — local Docker only 2026-07-19
 
@@ -122,25 +152,10 @@ await waitForMoatContract(providers, contractAddress); // optional
 npm run local:up && npm run deploy:local
 ```
 
-## Deploy (Preprod) — public testnet handoff
-
-Script: `api/scripts/deploy-preprod.ts` → `npm run deploy:preprod`
-
-Uses public Preprod node/indexer + **local proof server** (`npm run local:proof`). Requires a funded Preprod seed (`MIDNIGHT_PREPROD_SEED`) — never the local genesis seed, never commit, never paste into chat. Faucet: https://faucet.preprod.midnight.network/
-
-```bash
-npm run local:proof
-npm run deploy:preprod
-# → prints MOAT_CONTRACT_ADDRESS=…
-# → writes ./deployment.preprod.json (gitignored)
-```
-
-**[CORE FACT REQUIRED]** Preprod `MOAT_CONTRACT_ADDRESS` / `VITE_MOAT_CONTRACT_ADDRESS`: fill after a successful `deploy:preprod` run.
-
 ## Not done yet
 
-1. Run `deploy:preprod` → record Preprod address for Atharv
-2. Atharv wires frontend to `VITE_MOAT_CONTRACT_ADDRESS` + wallet providers
+1. Atharv: Lace providers → `deployMoatContractLowLevel` → record Preprod address
+2. Wire `VITE_MOAT_CONTRACT_ADDRESS` + join / `createConfiguredMoatClient`
 3. Full Compact circuit simulator / proof-path integration tests
 
 ## Blockers / limitations
