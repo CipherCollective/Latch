@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "pretypecheck": "npm run build:dist --workspace @latch/contract",
     "build": "tsc -b && vite build",
+    "prebuild": "npm run build:dist --workspace @latch/contract",
     "build:pages": "tsc -b && vite build --base=/Latch/ --outDir ../docs --emptyOutDir false",
     "lint": "node ./scripts/lint.mjs",
     "typecheck": "tsc -b --pretty false",
