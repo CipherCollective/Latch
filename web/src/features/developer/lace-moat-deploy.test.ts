@@ -66,6 +66,27 @@ beforeEach(() => {
 });
 
 describe('Lace deployment provider bridge', () => {
+  function submitThroughBridge(api: ConnectedAPI) {
+    mocks.deployMoatContractLowLevel.mockImplementation(async (providers: unknown) => {
+      const bridge = providers as {
+        walletAndMidnightProvider: {
+          submitTx: (transaction: { serialize: () => Uint8Array; identifiers: () => string[] }) => Promise<string>;
+        };
+      };
+      const txId = await bridge.walletAndMidnightProvider.submitTx({
+        serialize: () => new Uint8Array([10, 11, 12]),
+        identifiers: () => ['fixture-transaction-id'],
+      });
+      return {
+        contractAddress: 'fixture-contract-address',
+        txId,
+        signingKey: 'fixture-signing-key',
+        initialPrivateState: {},
+      };
+    });
+    return deployMoatWithLace(session, api);
+  }
+
   it('classifies a connector ReferenceError at the wallet balance boundary and exposes only its safe identifier', async () => {
     const api = connectedApi({
       balanceUnsealedTransaction: vi.fn().mockRejectedValue(new ReferenceError('Buffer is not defined')),
@@ -98,32 +119,50 @@ describe('Lace deployment provider bridge', () => {
     expect(api.submitTransaction).not.toHaveBeenCalled();
   });
 
-  it('derives the transaction identifier before Connector API 4.0.1 void submission', async () => {
-    const submitTransaction = vi.fn().mockResolvedValue(undefined);
-    const api = connectedApi({ submitTransaction });
-    mocks.deployMoatContractLowLevel.mockImplementation(async (providers: unknown) => {
-      const bridge = providers as {
-        walletAndMidnightProvider: {
-          submitTx: (transaction: { serialize: () => Uint8Array; identifiers: () => string[] }) => Promise<string>;
-        };
-      };
-      const txId = await bridge.walletAndMidnightProvider.submitTx({
-        serialize: () => new Uint8Array([10, 11, 12]),
-        identifiers: () => ['fixture-transaction-id'],
-      });
-      return {
-        contractAddress: 'fixture-contract-address',
-        txId,
-        signingKey: 'fixture-signing-key',
-        initialPrivateState: {},
-      };
+  it('derives the transaction identifier and preserves this-binding for Connector API 4.0.1 void submission', async () => {
+    let api: ConnectedAPI;
+    const submitTransaction = vi.fn(function (this: unknown) {
+      expect(this).toBe(api);
+      return Promise.resolve();
     });
+    api = connectedApi({ submitTransaction });
 
-    const result = await deployMoatWithLace(session, api);
+    const result = await submitThroughBridge(api);
 
     expect(result.txId).toBe('fixture-transaction-id');
     expect(submitTransaction).toHaveBeenCalledTimes(1);
     expect(submitTransaction).toHaveBeenCalledWith('0a0b0c');
+  });
+
+  it('classifies an explicit connector rejection before broadcast', async () => {
+    const rejection = Object.assign(new Error('private connector reason'), {
+      type: 'DAppConnectorAPIError',
+      code: 'Rejected',
+      reason: 'private connector reason',
+    });
+    const failure = await submitThroughBridge(
+      connectedApi({ submitTransaction: vi.fn().mockRejectedValue(rejection) }),
+    ).catch((error: unknown) => error);
+
+    expect(developerRouteDiagnostic('deployment_submission', failure)).toMatchObject({
+      stage: 'wallet_submission',
+      walletErrorCode: 'USER_REJECTED',
+      message: 'The Lace submission request was rejected. No automatic retry will occur.',
+    });
+  });
+
+  it('classifies an unknown asynchronous rejection as ambiguous after possible broadcast', async () => {
+    const privateValue = 'private relay acknowledgement failure';
+    const failure = await submitThroughBridge(
+      connectedApi({ submitTransaction: vi.fn().mockRejectedValue(new Error(privateValue)) }),
+    ).catch((error: unknown) => error);
+    const diagnostic = developerRouteDiagnostic('deployment_submission', failure);
+
+    expect(diagnostic).toMatchObject({
+      stage: 'wallet_submission',
+      walletErrorCode: 'AMBIGUOUS_SUBMISSION',
+    });
+    expect(diagnostic.message).not.toContain(privateValue);
   });
 
   it('does not expose arbitrary ReferenceError text as an identifier', () => {

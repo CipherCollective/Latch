@@ -78,6 +78,21 @@ describe('MoatPreprodDeployPanel', () => {
     await screen.findByText('contract-preprod-123');
   });
 
+  it('prevents a duplicate submission after an ambiguous connector failure', async () => {
+    const deploy = vi.fn().mockRejectedValue(
+      new DeveloperRouteFailure('wallet_submission', new Error('private relay failure'), 'AMBIGUOUS_SUBMISSION'),
+    );
+    render(<MoatPreprodDeployPanel session={connectedSession()} connectedApi={laceApi} deploy={deploy} />);
+
+    const button = screen.getByRole('button', { name: 'Deploy Moat contract on Preprod' });
+    fireEvent.click(button);
+
+    expect(await screen.findByText('AMBIGUOUS_SUBMISSION')).toBeVisible();
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(deploy).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a privacy-safe deployment failure diagnostic', async () => {
     const privateValue = 'wallet_payload_must_not_render';
     const deploy = vi.fn().mockRejectedValue(new Error(privateValue));

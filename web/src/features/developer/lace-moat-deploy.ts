@@ -11,7 +11,10 @@ import {
 
 import type { ConnectedWalletSession } from '../../wallet/midnight-wallet-connector';
 import { createBrowserZkConfigProvider } from './browser-zk-provider';
-import { DeveloperRouteFailure } from './developer-route-diagnostics';
+import {
+  DeveloperRouteFailure,
+  type WalletSubmissionErrorCode,
+} from './developer-route-diagnostics';
 
 export type MoatDeploymentResult = {
   contractAddress: string;
@@ -33,6 +36,35 @@ function fromHex(value: string): Uint8Array {
     bytes[index / 2] = Number.parseInt(normalized.slice(index, index + 2), 16);
   }
   return bytes;
+}
+
+function safeErrorProperty(error: unknown, property: 'code' | 'message' | 'reason' | 'type'): unknown {
+  if ((typeof error !== 'object' || error === null) && typeof error !== 'function') return undefined;
+  try {
+    return Reflect.get(error, property);
+  } catch {
+    return undefined;
+  }
+}
+
+function classifySubmissionError(error: unknown, invocationStarted: boolean): WalletSubmissionErrorCode {
+  const connectorCode = safeErrorProperty(error, 'code');
+  if (connectorCode === 'Rejected' || connectorCode === 'PermissionRejected') return 'USER_REJECTED';
+  if (connectorCode === 'Disconnected') return 'WALLET_LOCKED';
+
+  const text = ['code', 'reason', 'message']
+    .map((property) => safeErrorProperty(error, property as 'code' | 'reason' | 'message'))
+    .filter((value): value is string => typeof value === 'string' && value.length <= 256)
+    .join(' ')
+    .toLowerCase();
+  if (/already (?:submitted|known|imported)|duplicate|already in (?:the )?pool/.test(text)) return 'ALREADY_SUBMITTED';
+  if (/wrong network|network mismatch|different network/.test(text)) return 'WRONG_NETWORK';
+  if (/wallet (?:is )?locked|disconnected|connection lost/.test(text)) return 'WALLET_LOCKED';
+  if (/reject|declin|permission denied/.test(text)) return 'USER_REJECTED';
+  if (connectorCode === 'InvalidRequest' || /invalid|malformed|deserial|decode/.test(text)) {
+    return 'INVALID_TRANSACTION';
+  }
+  return invocationStarted ? 'AMBIGUOUS_SUBMISSION' : 'CONNECTOR_INTERNAL_ERROR';
 }
 
 async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<WalletAndMidnightProvider> {
@@ -82,11 +114,41 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
       if (!txId) {
         throw new DeveloperRouteFailure('transaction_serialization', new TypeError('missing transaction identifier'));
       }
+      const submitTransaction = Reflect.get(api, 'submitTransaction');
+      if (typeof submitTransaction !== 'function') {
+        throw new DeveloperRouteFailure(
+          'wallet_submission',
+          new TypeError('missing connector submit method'),
+          'CONNECTOR_INTERNAL_ERROR',
+        );
+      }
+      let submission: unknown;
       try {
-        // Connector API 4.0.1 resolves with void, so preserve the ledger identifier before submission.
-        await api.submitTransaction(serialized);
+        // Keep the original live ConnectedAPI as the receiver; Lace uses instance methods internally.
+        submission = Reflect.apply(submitTransaction, api, [serialized]);
       } catch (error) {
-        throw new DeveloperRouteFailure('wallet_submission', error);
+        throw new DeveloperRouteFailure('wallet_submission', error, classifySubmissionError(error, false));
+      }
+      let then: unknown;
+      try {
+        then =
+          ((typeof submission === 'object' && submission !== null) || typeof submission === 'function')
+            ? Reflect.get(submission, 'then')
+            : undefined;
+      } catch (error) {
+        throw new DeveloperRouteFailure('wallet_submission', error, 'CONNECTOR_INTERNAL_ERROR');
+      }
+      if (typeof then !== 'function') {
+        throw new DeveloperRouteFailure(
+          'wallet_submission',
+          new TypeError('connector submission was not awaitable'),
+          'CONNECTOR_INTERNAL_ERROR',
+        );
+      }
+      try {
+        await submission;
+      } catch (error) {
+        throw new DeveloperRouteFailure('wallet_submission', error, classifySubmissionError(error, true));
       }
       return txId as never;
     },
