@@ -166,13 +166,13 @@ function isRecordLike(value: unknown): value is object {
   return (typeof value === 'object' && value !== null) || typeof value === 'function';
 }
 
-function safeEndpoint(value: unknown, protocol: 'https:' | 'wss:'): string | undefined {
+function safeEndpoint(value: unknown, ...protocols: Array<'https:' | 'wss:'>): string | undefined {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_ENDPOINT_LENGTH) return undefined;
 
   try {
     const endpoint = new URL(value);
     if (
-      endpoint.protocol !== protocol ||
+      !protocols.includes(endpoint.protocol as 'https:' | 'wss:') ||
       !endpoint.hostname ||
       endpoint.username ||
       endpoint.password
@@ -190,7 +190,7 @@ function safeConfiguration(value: unknown, networkId: NetworkId): Configuration 
 
   const indexerUri = safeEndpoint(safeProperty(value, 'indexerUri'), 'https:');
   const indexerWsUri = safeEndpoint(safeProperty(value, 'indexerWsUri'), 'wss:');
-  const substrateNodeUri = safeEndpoint(safeProperty(value, 'substrateNodeUri'), 'wss:');
+  const substrateNodeUri = safeEndpoint(safeProperty(value, 'substrateNodeUri'), 'https:', 'wss:');
   if (!indexerUri || !indexerWsUri || !substrateNodeUri) return undefined;
 
   const proverValue = safeProperty(value, 'proverServerUri');
@@ -321,14 +321,13 @@ export class MidnightWalletConnector {
     const getConnectionStatus = safeProperty(connectedValue, 'getConnectionStatus');
     const getConfiguration = safeProperty(connectedValue, 'getConfiguration');
     if (
-      (requestPermissionHint && typeof hintUsage !== 'function') ||
       typeof getConnectionStatus !== 'function' ||
       typeof getConfiguration !== 'function'
     ) {
       throw failure('UNKNOWN');
     }
 
-    if (requestPermissionHint) {
+    if (requestPermissionHint && typeof hintUsage === 'function') {
       const methods: Array<keyof WalletConnectedAPI> = ['getConnectionStatus', 'getConfiguration'];
       await Reflect.apply(hintUsage as ConnectedAPI['hintUsage'], connectedValue, [methods]);
     }
@@ -404,6 +403,16 @@ export class MidnightWalletConnector {
     } catch (error) {
       throw toPublicWalletError(error);
     }
+  }
+
+  /**
+   * Returns the connected capability only for an already-confirmed in-memory
+   * session. It is deliberately not serialized or stored in React state.
+   */
+  getConnectedApi(session: ConnectedWalletSession): ConnectedAPI {
+    const connected = this.#connectedApis.get(session);
+    if (!connected) throw toPublicWalletError(failure('UNKNOWN'));
+    return connected;
   }
 
   toPublicWalletError(error: unknown): PublicClientError {
