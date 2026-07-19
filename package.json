@@ -14,6 +14,7 @@
     "typecheck:contract": "npm run typecheck --workspace @latch/contract",
     "test:contract": "npm run test --workspace @latch/contract",
     "prepare:contract": "npm run build:dist --workspace @latch/contract",
+    "sync:zk-assets": "node ./scripts/sync-zk-assets.mjs",
     "build:api": "npm run prepare:contract && npm run build --workspace @latch/api",
     "typecheck:api": "npm run prepare:contract && npm run typecheck --workspace @latch/api",
     "test:api": "npm run prepare:contract && npm run test --workspace @latch/api",
@@ -33,7 +34,9 @@
     "local:down": "docker compose down",
     "local:ps": "docker compose ps",
     "local:logs": "docker compose logs -f",
-    "local:proof": "docker compose up -d proof-server"
+    "local:proof": "docker compose up -d proof-server",
+    "deploy:local": "npm run prepare:contract && npm run build --workspace @latch/api && npm run deploy:local --workspace @latch/api",
+    "deploy:lace": "npm run prepare:contract && npm run sync:zk-assets && npm run build --workspace @latch/api && node ./scripts/print-lace-deploy.mjs"
   },
   "engines": {
     "node": ">=22.13.0 <23"

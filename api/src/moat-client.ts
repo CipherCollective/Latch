@@ -1,5 +1,7 @@
 import type { ConnectedWalletSession } from './wallet-session.js';
 import type { MoatClient } from './types.js';
+import type { RealMoatClientOptions } from './real-client.js';
+import { RealMoatClient } from './real-client.js';
 
 /**
  * Real Midnight-backed client seam. Throws until a verified core factory is supplied
@@ -15,6 +17,16 @@ export class CoreHandoffRequiredError extends Error {
 }
 
 export type VerifiedMoatClientFactory = (session: ConnectedWalletSession) => MoatClient;
+
+export type CoreHandoffConfig = RealMoatClientOptions;
+
+/**
+ * Build a RealMoatClient from an already-deployed/joined contract + providers.
+ * Atharv should obtain wallet providers, call deployMoatContract/joinMoatContract, then pass the handle here.
+ */
+export function createConfiguredMoatClient(config: CoreHandoffConfig): RealMoatClient {
+  return new RealMoatClient(config);
+}
 
 export function createRealMoatClient(
   factory: VerifiedMoatClientFactory | undefined,

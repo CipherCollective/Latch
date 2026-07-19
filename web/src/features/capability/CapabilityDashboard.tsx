@@ -10,6 +10,10 @@ import type {
   ProofStep,
 } from '../../types/domain';
 
+const PREPROD_CONTRACT_ADDRESS = '3f45a282f188b82e5e8b029825a9057e2f3a295cd48b015eff73949eff8d8a25';
+const PREPROD_DEPLOYMENT_TX_ID =
+  '002d6d4d1f5f3965db970e14071947b895ca5a4aed76f5a0e5c8ba29384e333d64';
+
 type RejectedAuthorization = Extract<AuthorizationResult, { status: 'rejected' }>;
 type VerificationState = 'idle' | 'verifying' | 'verified' | 'invalid' | 'unavailable';
 
@@ -49,6 +53,9 @@ export function CapabilityDashboard({
   onStartOver,
 }: CapabilityDashboardProps) {
   const interactionBusy = operationBusy || authorizationBusy;
+  const hasApprovedOutcome = events.some((event) => event.label === 'Approved result received.');
+  const hasRejectedOutcome = events.some((event) => event.label === 'Rejected result received.');
+  const showTechnicalReceipt = capability.status === 'revoked' && hasApprovedOutcome && hasRejectedOutcome;
   const [copyStatus, setCopyStatus] = useState('');
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -98,6 +105,23 @@ export function CapabilityDashboard({
           </button>
         </div>
       </div>
+
+      <section className="simulator-contract-map" aria-labelledby="simulator-contract-map-title">
+        <div>
+          <span className="eyebrow">Interactive policy simulator</span>
+          <h2 id="simulator-contract-map-title">Local simulation &middot; Contract-equivalent logic</h2>
+          <p>
+            Explore the same capability rules implemented by the deployed Compact contract, with instant approval,
+            rejection, revocation, and replay-protection outcomes.
+          </p>
+        </div>
+        <dl>
+          <div><dt>Capability creation</dt><dd><code>createCapability</code></dd></div>
+          <div><dt>Valid / invalid request</dt><dd><code>authorizeSpend</code></dd></div>
+          <div><dt>Revocation</dt><dd><code>revokeCapability</code></dd></div>
+          <div><dt>Post-revocation retry</dt><dd><code>authorizeSpend</code> rejection</dd></div>
+        </dl>
+      </section>
 
       <div className="dashboard-grid">
         <article className="panel-light capability-card">
@@ -215,6 +239,46 @@ export function CapabilityDashboard({
             onVerify={onVerifyReceipt}
           />
         </div>
+      ) : null}
+
+      {showTechnicalReceipt ? (
+        <section className="simulator-completion" aria-labelledby="simulator-completion-title">
+          <div className="simulator-completion-heading">
+            <Check aria-hidden="true" size={22} />
+            <div>
+              <span className="eyebrow">Technical receipt</span>
+              <h2 id="simulator-completion-title">Interactive policy simulator complete</h2>
+              <p>Local simulation outcomes are shown separately from the live Preprod deployment proof.</p>
+            </div>
+          </div>
+          <ul className="simulator-completion-list">
+            <li>Private spending policy created</li>
+            <li>Valid request authorized</li>
+            <li>Invalid request rejected</li>
+            <li>Capability revoked</li>
+            <li>Post-revocation request rejected</li>
+            <li>MOAT contract deployed on Midnight Preprod</li>
+          </ul>
+          <dl className="simulator-deployment-proof">
+            <div>
+              <dt>Contract address</dt>
+              <dd><code>{PREPROD_CONTRACT_ADDRESS}</code></dd>
+              <button type="button" onClick={() => void copy('Contract address', PREPROD_CONTRACT_ADDRESS)}>
+                <Clipboard aria-hidden="true" size={16} /> Copy contract address
+              </button>
+            </div>
+            <div>
+              <dt>Transaction ID</dt>
+              <dd><code>{PREPROD_DEPLOYMENT_TX_ID}</code></dd>
+              <button type="button" onClick={() => void copy('Transaction ID', PREPROD_DEPLOYMENT_TX_ID)}>
+                <Clipboard aria-hidden="true" size={16} /> Copy transaction ID
+              </button>
+            </div>
+          </dl>
+          <button className="button button-primary" type="button" onClick={onStartOver}>
+            <RotateCcw aria-hidden="true" size={16} /> Restart simulator
+          </button>
+        </section>
       ) : null}
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">

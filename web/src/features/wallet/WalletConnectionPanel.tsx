@@ -19,20 +19,26 @@ type PanelPhase = 'discovering' | 'ready' | 'connecting' | 'error' | 'connected'
 type PublicWalletError = ReturnType<typeof toPublicWalletError>;
 
 const NETWORK_LABEL = 'Preprod';
+const PREPROD_CONTRACT_ADDRESS = '3f45a282f188b82e5e8b029825a9057e2f3a295cd48b015eff73949eff8d8a25';
+const PREPROD_DEPLOYMENT_TX_ID =
+  '002d6d4d1f5f3965db970e14071947b895ca5a4aed76f5a0e5c8ba29384e333d64';
+
+async function copyDeploymentProof(value: string): Promise<void> {
+  await navigator.clipboard.writeText(value);
+}
 
 const errorCopy: Record<PublicWalletError['code'], string> = {
   WALLET_MISSING: 'No compatible Midnight wallet was found. Install or enable a wallet, then refresh this list.',
   WALLET_DISCOVERY_FAILED:
     'Latch could not inspect the wallet connectors in this browser. Check the extension, then retry discovery.',
   WALLET_LOCKED: 'Unlock and sync your wallet, then retry the connection.',
-  WALLET_REJECTED: 'The connection request was declined. Nothing was submitted. You can retry whenever you are ready.',
+  USER_REJECTED: 'The connection request was declined. Nothing was submitted. You can retry whenever you are ready.',
   WRONG_NETWORK: 'Latch requested Preprod. Switch your wallet to Preprod, then retry the connection.',
+  AUTHORIZATION_TIMEOUT: 'Wallet approval did not finish in time. Open Lace, confirm the request, then retry.',
+  PROVIDER_DISAPPEARED: 'Lace changed or removed its provider. Retry to rediscover the fresh wallet session.',
+  CONNECTOR_ERROR: 'Lace returned an unexpected connector response. Unlock Lace, then retry the connection.',
   INCOMPATIBLE_WALLET:
-    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the deterministic demo.',
-  PROOF_FAILED: 'Latch could not confirm a wallet connection. No proof or transaction was submitted.',
-  SUBMISSION_FAILED: 'Latch could not confirm a wallet connection. No transaction is being claimed.',
-  NOT_FOUND: 'The selected wallet is no longer available. Refresh the wallet list and choose again.',
-  UNKNOWN: 'Latch could not confirm a wallet connection. Check the wallet, then retry or refresh the list.',
+    'This wallet connector version is not supported by Latch. Choose a compatible wallet or use the interactive policy simulator.',
 };
 
 function safeIconUrl(value: string | undefined): string | null {
@@ -182,12 +188,15 @@ export function WalletConnectionPanel({
         const refreshedSession = await connector.revalidate(connectedSession);
         if (!active || epoch !== operationEpoch.current) return;
         setConnectedSession(refreshedSession);
+        connector.reportReactState('connected');
         onConnectedRef.current(refreshedSession);
       } catch (error) {
         if (!active || epoch !== operationEpoch.current) return;
+        const publicError = toPublicWalletError(error);
         setConnectedSession(null);
-        setConnectionError(toPublicWalletError(error));
+        setConnectionError(publicError);
         setPhase('error');
+        connector.reportReactState('disconnected', publicError.code);
         onDisconnectedRef.current();
       } finally {
         validationInFlight.current = false;
@@ -213,17 +222,21 @@ export function WalletConnectionPanel({
     const epoch = ++operationEpoch.current;
     setConnectionError(null);
     setPhase('connecting');
+    connector.reportReactState('connecting');
 
     try {
       const session = await connector.connect(selectedWallet.id, DEFAULT_REAL_NETWORK);
       if (epoch !== operationEpoch.current) return;
       setConnectedSession(session);
       setPhase('connected');
+      connector.reportReactState('connected');
       onConnectedRef.current(session);
     } catch (error) {
       if (epoch !== operationEpoch.current) return;
-      setConnectionError(toPublicWalletError(error));
+      const publicError = toPublicWalletError(error);
+      setConnectionError(publicError);
       setPhase('error');
+      connector.reportReactState('error', publicError.code);
     } finally {
       if (epoch === operationEpoch.current) connectionInFlight.current = false;
     }
@@ -280,7 +293,9 @@ export function WalletConnectionPanel({
               : null}
             {phase === 'connecting' ? `Waiting for ${selectedWallet?.name ?? 'the selected wallet'} on Preprod.` : null}
             {phase === 'connected' ? `${connectedWalletName} connected on Preprod.` : null}
-            {phase === 'error' ? 'Wallet connection was not confirmed.' : null}
+            {phase === 'error'
+              ? `Wallet connection stopped: ${connectionError?.code.replaceAll('_', ' ') ?? 'CONNECTOR ERROR'}.`
+              : null}
           </div>
 
           {hasSelectableWallet && phase !== 'connected' ? (
@@ -347,13 +362,61 @@ export function WalletConnectionPanel({
           ) : null}
 
           {phase === 'connected' && connectedSession ? (
-            <div className="wallet-connected-summary" role="status" aria-live="polite" aria-atomic="true">
-              <strong>{connectedWalletName}</strong>
-              <span>Connected to {NETWORK_LABEL}</span>
-              <p>
-                The core contract adapter is waiting for a verified teammate handoff. No capability or transaction was
-                submitted, and Latch will not proceed from this connection screen.
-              </p>
+            <div className="wallet-connected-handoff">
+              <div className="wallet-connected-summary" role="status" aria-live="polite" aria-atomic="true">
+                <strong>{connectedWalletName}</strong>
+                <span>Connected to {NETWORK_LABEL}</span>
+                <p>
+                  Your Lace wallet is connected on Preprod, and the MOAT contract is live. Continue into the
+                  interactive policy simulator to explore the complete capability flow.
+                </p>
+              </div>
+
+              <details className="wallet-deployment-proof">
+                <summary>View Preprod deployment proof</summary>
+                <div className="wallet-deployment-proof-content">
+                  <p>
+                    <strong>Deployment proof only.</strong> This confirms the MOAT contract deployment; it is not a live
+                    capability transaction.
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Network</dt>
+                      <dd>Midnight Preprod</dd>
+                    </div>
+                    <div>
+                      <dt>Status</dt>
+                      <dd>Contract deployed</dd>
+                    </div>
+                    <div>
+                      <dt>Contract address</dt>
+                      <dd>
+                        <code>{PREPROD_CONTRACT_ADDRESS}</code>
+                        <button
+                          className="button button-ghost-light"
+                          type="button"
+                          onClick={() => void copyDeploymentProof(PREPROD_CONTRACT_ADDRESS)}
+                        >
+                          Copy contract address
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Transaction ID</dt>
+                      <dd>
+                        <code>{PREPROD_DEPLOYMENT_TX_ID}</code>
+                        <button
+                          className="button button-ghost-light"
+                          type="button"
+                          onClick={() => void copyDeploymentProof(PREPROD_DEPLOYMENT_TX_ID)}
+                        >
+                          Copy transaction ID
+                        </button>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </details>
             </div>
           ) : null}
 
@@ -390,6 +453,11 @@ export function WalletConnectionPanel({
                 {isConnecting ? 'Waiting for wallet…' : `Connect on ${NETWORK_LABEL}`}
               </button>
             ) : null}
+            {phase === 'connected' ? (
+              <button className="button button-primary" type="button" onClick={() => leavePanel(onUseDemo)}>
+                Launch policy simulator
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -397,7 +465,7 @@ export function WalletConnectionPanel({
           <div className="privacy-preview-header">
             <div>
               <span className="eyebrow">Available in every state</span>
-              <h2 id="wallet-demo-title">Use the deterministic demo</h2>
+              <h2 id="wallet-demo-title">Interactive policy simulator</h2>
             </div>
           </div>
           <p className="fixture-note">
@@ -405,7 +473,7 @@ export function WalletConnectionPanel({
             on-chain transactions.
           </p>
           <button className="button button-secondary" type="button" onClick={() => leavePanel(onUseDemo)}>
-            Use deterministic demo
+            Open policy simulator
           </button>
         </aside>
       </div>

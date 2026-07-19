@@ -4,7 +4,8 @@ node_modules/
 .pnp.*
 
 # Compact / build outputs
-contract/src/managed/
+# contract/src/managed/ is tracked so Windows teammates can run prepare:contract
+# without the Compact compiler (regenerate via WSL `npm run compact` when source changes).
 contract/dist/
 **/dist/
 **/coverage/
@@ -23,6 +24,11 @@ skills-lock.json
 .env.*
 !.env.example
 *.pem
+
+# Local undeployed deploy output (public address only; still machine-local)
+deployment.json
+deployment.preprod.json
+.preprod-seed.local
 
 # OS / editor
 .DS_Store

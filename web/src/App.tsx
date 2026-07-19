@@ -10,9 +10,10 @@ import type { ActivityEvent, DemoRequestKind } from './features/authorization/Ag
 import { ObserverWorkspace } from './features/observer/ObserverWorkspace';
 import { ViewModeToggle } from './features/observer/ViewModeToggle';
 import { WalletConnectionPanel } from './features/wallet/WalletConnectionPanel';
+import { DeveloperMoatDeployRoute } from './features/developer/DeveloperMoatDeployRoute';
 import { buildObserverWorkspaceModel } from './privacy/observer-serializer';
 import { useMoatClient } from './services/moat-provider';
-import type { ConnectedWalletSession } from './wallet/midnight-wallet-connector';
+import { MidnightWalletConnector, type ConnectedWalletSession } from './wallet/midnight-wallet-connector';
 import type {
   AuthorizationReceipt,
   AuthorizationResult,
@@ -36,10 +37,12 @@ const PROOF_STATUS_RANK: Record<ProofStep['status'], number> = {
 
 function App() {
   const client = useMoatClient();
+  const walletConnector = useRef(new MidnightWalletConnector());
   const [selectedMode, setSelectedMode] = useState<SelectedMode>('landing');
   const [screen, setScreen] = useState<Screen>('landing');
   const [viewMode, setViewMode] = useState<ViewMode>('owner');
   const [walletSession, setWalletSession] = useState<ConnectedWalletSession | null>(null);
+  const [developerWalletSession, setDeveloperWalletSession] = useState<ConnectedWalletSession | null>(null);
   const [capability, setCapability] = useState<CapabilityOwnerState | null>(null);
   const [busy, setBusy] = useState(false);
   const [authorizationBusy, setAuthorizationBusy] = useState(false);
@@ -58,6 +61,8 @@ function App() {
   const verificationTarget = useRef<string | null>(null);
   const landingHeadingRef = useRef<HTMLHeadingElement>(null);
   const shouldRestoreLandingFocus = useRef(false);
+  const isDeveloperDeployRoute =
+    typeof window !== 'undefined' && window.location.pathname === '/developer/moat-deploy';
 
   useEffect(() => {
     if (screen === 'landing' && shouldRestoreLandingFocus.current) {
@@ -293,7 +298,7 @@ function App() {
           </span>
           <span className={`mode-chip mode-chip-${selectedMode}`}>
             {selectedMode === 'demo'
-              ? 'Demo mode'
+              ? 'Policy simulator'
               : selectedMode === 'wallet' && walletSession
                 ? 'Preprod · Wallet connected'
                 : selectedMode === 'wallet'
@@ -304,10 +309,18 @@ function App() {
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        {screen === 'landing' ? (
+        {isDeveloperDeployRoute ? (
+          <DeveloperMoatDeployRoute
+            connector={walletConnector.current}
+            session={developerWalletSession}
+            onConnected={setDeveloperWalletSession}
+            onDisconnected={() => setDeveloperWalletSession(null)}
+          />
+        ) : screen === 'landing' ? (
           <Landing headingRef={landingHeadingRef} onDemo={enterDemo} onWallet={chooseWallet} />
         ) : screen === 'wallet' ? (
           <WalletConnectionPanel
+            connector={walletConnector.current}
             onConnected={setWalletSession}
             onDisconnected={() => setWalletSession(null)}
             onUseDemo={enterDemo}
@@ -386,10 +399,22 @@ function Landing({
           <h1 id="hero-title" ref={headingRef} tabIndex={-1}>Every payment must pass a private gate.</h1>
           <p className="hero-kicker">Give agents money. Not your wallet.</p>
           <p className="hero-subhead">
-            Delegate spending power under private rules. The deterministic demo models the full gate locally;
-            verified Midnight proofs and transactions remain disabled until the core handoff.
+            Explore the same capability rules implemented by the deployed Compact contract, with instant approval,
+            rejection, revocation, and replay-protection outcomes.
           </p>
           <ModeChooser onDemo={onDemo} onWallet={onWallet} />
+          <div className="simulation-honesty-label">Local simulation &middot; Contract-equivalent logic</div>
+          <div className="midnight-proof-strip" aria-label="Built on Midnight proof points">
+            <strong>Built on Midnight</strong>
+            <ul>
+              <li>Compact contract</li>
+              <li>3 private circuits</li>
+              <li>Live on Preprod</li>
+              <li>Lace wallet</li>
+              <li>Revocable capabilities</li>
+              <li>Automated test coverage</li>
+            </ul>
+          </div>
           <a className="architecture-link" href="#architecture">
             View protocol architecture
             <ArrowDown aria-hidden="true" size={16} />

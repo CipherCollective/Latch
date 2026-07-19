@@ -48,6 +48,7 @@ function mockConnector(wallets: WalletOption[] = []) {
     discover: vi.fn(() => wallets),
     connect: vi.fn<MidnightWalletConnector['connect']>(),
     revalidate: vi.fn<MidnightWalletConnector['revalidate']>((session) => Promise.resolve(session)),
+    reportReactState: vi.fn<MidnightWalletConnector['reportReactState']>(),
   } as unknown as MidnightWalletConnector;
 }
 
@@ -73,7 +74,7 @@ describe('WalletConnectionPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh wallets' }));
     await waitFor(() => expect(connector.discover).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole('button', { name: 'Use deterministic demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open policy simulator' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(handlers.onUseDemo).toHaveBeenCalledTimes(1);
     expect(handlers.onBack).toHaveBeenCalledTimes(1);
@@ -90,6 +91,21 @@ describe('WalletConnectionPanel', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Connect your Midnight wallet' })).toHaveFocus();
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeChecked();
+  });
+
+  it('replaces the wallet list on refresh instead of retaining stale entries', async () => {
+    const staleWallet = compatibleWallet({ name: 'Stale Lace wrapper' });
+    const currentWallet = compatibleWallet({ id: 'wallet-2', name: 'lace' });
+    const connector = mockConnector();
+    vi.mocked(connector.discover).mockReturnValueOnce([staleWallet]).mockReturnValueOnce([currentWallet]);
+    renderPanel(connector);
+
+    expect(await screen.findByRole('radio', { name: /Stale Lace wrapper/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh wallets' }));
+
+    expect(await screen.findByRole('radio', { name: /^lace/ })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: /Stale Lace wrapper/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
   });
 
   it('sanitizes a discovery exception and recovers by retrying discovery', async () => {
@@ -171,7 +187,7 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeVisible();
     expect(screen.getByRole('radio', { name: /Nightly/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Waiting for wallet…' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Use deterministic demo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open policy simulator' })).toBeEnabled();
 
     pending.resolve(connectedSession());
     await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' });
@@ -193,9 +209,12 @@ describe('WalletConnectionPanel', () => {
   });
 
   it.each([
-    ['WALLET_REJECTED', 'connection request was declined'],
+    ['USER_REJECTED', 'connection request was declined'],
     ['WALLET_LOCKED', 'Unlock and sync your wallet'],
     ['WRONG_NETWORK', 'Latch requested Preprod'],
+    ['AUTHORIZATION_TIMEOUT', 'approval did not finish in time'],
+    ['PROVIDER_DISAPPEARED', 'changed or removed its provider'],
+    ['CONNECTOR_ERROR', 'unexpected connector response'],
     ['INCOMPATIBLE_WALLET', 'connector version is not supported'],
   ] as const)('shows a safe %s error with recovery', async (code, expectedCopy) => {
     const connector = mockConnector([compatibleWallet()]);
@@ -208,14 +227,14 @@ describe('WalletConnectionPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(expectedCopy);
     expect(screen.getByRole('button', { name: 'Retry connection' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Refresh wallets' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Use deterministic demo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open policy simulator' })).toBeEnabled();
   });
 
-  it('retries a declined connection and reaches a truthful connected state', async () => {
+  it('retries a declined connection and launches the interactive policy simulator', async () => {
     const session = connectedSession();
     const connector = mockConnector([compatibleWallet()]);
     vi.mocked(connector.connect)
-      .mockRejectedValueOnce(publicError('WALLET_REJECTED'))
+      .mockRejectedValueOnce(publicError('USER_REJECTED'))
       .mockResolvedValueOnce(session);
     const handlers = renderPanel(connector);
 
@@ -224,10 +243,48 @@ describe('WalletConnectionPanel', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' })).toHaveFocus();
     expect(screen.getByText('Connected to Preprod')).toBeVisible();
-    expect(screen.getByText(/core contract adapter is waiting for a verified teammate handoff/i)).toBeVisible();
-    expect(screen.getByText(/No capability or transaction was submitted/i)).toBeVisible();
-    expect(screen.queryByRole('button', { name: /continue|create capability|submit transaction/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Your Lace wallet is connected on Preprod, and the MOAT contract is live/i)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Launch policy simulator' }));
+    expect(handlers.onUseDemo).toHaveBeenCalledOnce();
     expect(handlers.onConnected).toHaveBeenCalledWith(session);
+    expect(connector.reportReactState).toHaveBeenCalledWith('connecting');
+    expect(connector.reportReactState).toHaveBeenLastCalledWith('connected');
+  });
+
+  it('shows copyable Preprod deployment proof without rendering wallet-private values', async () => {
+    const contractAddress = '3f45a282f188b82e5e8b029825a9057e2f3a295cd48b015eff73949eff8d8a25';
+    const transactionId = '002d6d4d1f5f3965db970e14071947b895ca5a4aed76f5a0e5c8ba29384e333d64';
+    const privateSentinels = ['addr_private_sentinel', 'balance_private_sentinel', 'seed_private_sentinel'];
+    const session = {
+      ...connectedSession('Lace'),
+      walletAddress: privateSentinels[0],
+      balance: privateSentinels[1],
+      seed: privateSentinels[2],
+    } as ConnectedWalletSession;
+    const connector = mockConnector([compatibleWallet({ name: 'Lace' })]);
+    vi.mocked(connector.connect).mockResolvedValue(session);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    renderPanel(connector);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect on Preprod' }));
+    await screen.findByRole('heading', { level: 1, name: 'Midnight wallet connected' });
+    fireEvent.click(screen.getByText('View Preprod deployment proof'));
+
+    expect(screen.getByText('Midnight Preprod')).toBeVisible();
+    expect(screen.getByText('Contract deployed')).toBeVisible();
+    expect(screen.getByText(contractAddress)).toBeVisible();
+    expect(screen.getByText(transactionId)).toBeVisible();
+    expect(screen.getByText(/Deployment proof only/i)).toBeVisible();
+    expect(screen.getByText(/not a live capability transaction/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy contract address' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy transaction ID' }));
+    expect(writeText).toHaveBeenNthCalledWith(1, contractAddress);
+    expect(writeText).toHaveBeenNthCalledWith(2, transactionId);
+    for (const privateValue of privateSentinels) {
+      expect(screen.queryByText(privateValue)).not.toBeInTheDocument();
+    }
   });
 
   it('downgrades a stale connected session when focus revalidation fails', async () => {
@@ -245,6 +302,7 @@ describe('WalletConnectionPanel', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Connection needs attention' })).toHaveFocus();
     expect(screen.getByRole('alert')).toHaveTextContent('Switch your wallet to Preprod');
     expect(handlers.onDisconnected).toHaveBeenCalledOnce();
+    expect(connector.reportReactState).toHaveBeenLastCalledWith('disconnected', 'WRONG_NETWORK');
     expect(screen.queryByText('Connected to Preprod')).not.toBeInTheDocument();
   });
 
@@ -281,7 +339,7 @@ describe('WalletConnectionPanel', () => {
     const handlers = renderPanel(connector);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Connect on Preprod' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Use deterministic demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open policy simulator' }));
     pending.resolve(connectedSession());
     await Promise.resolve();
 

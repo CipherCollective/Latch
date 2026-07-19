@@ -11,6 +11,9 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "moduleDetection": "force",
+    "paths": {
+      "@latch/contract": ["../contract/src/index.ts"]
+    },
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,

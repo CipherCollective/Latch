@@ -6,96 +6,169 @@ This log is for the Compact / Midnight / cryptography workstream. It must not co
 
 | Item | Value |
 | --- | --- |
-| Date | 2026-07-18 |
+| Date | 2026-07-19 |
 | Host OS | Windows 10 / 11 |
 | Compact host | WSL Ubuntu (required; native Windows Compact is unsupported) |
 | Node (Windows) | v24.5.0 |
-| npm (Windows) | 11.5.1 |
-| Docker Desktop | 28.3.2 (running) |
-| Compact CLI | 0.5.1 (`/root/.local/bin/compact`) |
-| Compact toolchain | **0.31.1** (support-matrix target) |
-| Compact language pragma | `>= 0.22` |
-| Compact runtime (pinned) | `@midnight-ntwrk/compact-runtime@0.16.0` |
-| Local stack images | node `0.22.5`, indexer `4.0.2`, proof-server `8.0.3` |
-| Midnight.js (not wired yet) | deferred to real-client / deploy |
-
-## Midnight skills
-
-Command run from repository root:
-
-```text
-npx skills add Kali-Decoder/Midnight-skills
-```
-
-Result: **30 skills installed** under `.agents/skills/` (gitignored).
+| Docker Desktop | 28.3.2 |
+| Compact toolchain | **0.31.1** / language **0.23.0** |
+| Compact runtime | **0.16.0** |
+| Compact.js | **2.5.1** |
+| Midnight.js | **4.1.1** |
+| Local stack | node `0.22.5`, indexer `4.0.2`, proof-server `8.0.3` |
 
 ## Branch
 
-- Active branch: `feat/ashiha/docker-proof-server`
-- Depends on: `feat/ashiha/api-client` (and prior contract PRs) until merged to `main`
-- Ownership: `docker-compose.yml`, root `local:*` scripts, `api/src/networks.ts`, `.env.example`, `docs/CORE_STATUS.md`
+- Active branch: `feat/ashiha/real-client`
+- Depends on: `feat/ashiha/docker-proof-server` → `feat/ashiha/api-client` → contract PRs
+- Ownership: `api/**` real client + providers/deploy helpers, `docs/CORE_STATUS.md`
 - Did **not** edit `web/**`
 
-## Deliverable — local undeployed Docker stack
+## Deliverable — real Midnight client wiring
 
 | Path | Role |
 | --- | --- |
-| `docker-compose.yml` | Node + indexer + proof-server (from official midnight-local-dev tags) |
-| `api/src/networks.ts` | `UNDEPLOYED_ENDPOINTS` + `endpointsFromEnv` |
-| `.env.example` | Undeployed / Preprod env placeholders |
-| Root `package.json` | `local:up` / `local:down` / `local:ps` / `local:logs` / `local:proof` |
+| `api/src/moat-compiled.ts` | `CompiledContract.make('moat', …)` + ZK asset path |
+| `api/src/providers.ts` | `createMoatProviders` (indexer + proof server + injected wallet) |
+| `api/src/private-state-provider.ts` | In-memory private state (hackathon / browser-safe) |
+| `api/src/deploy.ts` | `deployMoatContract` / `joinMoatContract` |
+| `api/src/real-client.ts` | `RealMoatClient` implementing `MoatClient` |
+| `api/src/moat-client.ts` | `createConfiguredMoatClient` + existing factory seam |
+| `api/src/networks.ts` | Undeployed + Preprod endpoint presets |
 
-### Commands
+### Atharv integration sketch
+
+```ts
+import {
+  UNDEPLOYED_ENDPOINTS,
+  createMoatProviders,
+  deployMoatContract, // or joinMoatContract(providers, address)
+  createConfiguredMoatClient,
+  hashAgentKey,
+  randomBytes32,
+  toHex32,
+} from '@latch/api';
+
+// 1) walletAndMidnightProvider comes from Lace/1AM adapter (Atharv)
+const providers = createMoatProviders({
+  endpoints: UNDEPLOYED_ENDPOINTS,
+  walletAndMidnightProvider, // injected
+});
+
+const deployed = await joinMoatContract(providers, process.env.MOAT_CONTRACT_ADDRESS!);
+// or: const deployed = await deployMoatContract(providers);
+
+const client = createConfiguredMoatClient({
+  providers,
+  deployed,
+  networkId: 'undeployed',
+});
+
+const agentSecret = randomBytes32();
+const agentKeyHash = toHex32(hashAgentKey(agentSecret));
+client.registerAgentSecret(agentKeyHash, agentSecret);
+
+const created = await client.createCapability({
+  policy: { agentName: '…', agentKeyHash, perTransactionLimit: 20n, totalBudget: 50n, maxUses: 3, allowedCategory: 'developer-tools' },
+});
+```
+
+### Verify
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
-npm run local:up      # full stack
-npm run local:ps      # health
-npm run local:proof   # proof-server only (e.g. Preprod proving)
-npm run local:down
+npm run typecheck:api   # exit 0
+npm run test:api        # 13 tests passed (includes compiled-contract smoke)
 ```
 
-### Endpoints (localhost-bound)
+## ZK assets for Atharv (browser)
 
-| Service | URL |
-| --- | --- |
-| Proof server | `http://127.0.0.1:6300` |
-| Node | `http://127.0.0.1:9944` |
-| Indexer GraphQL | `http://127.0.0.1:8088/api/v4/graphql` |
-| Indexer WS | `ws://127.0.0.1:8088/api/v4/graphql/ws` |
+After Compact compile:
 
-### Verify evidence (this machine)
-
-```text
-npm run typecheck:api  → exit 0
-npm run test:api       → 16 tests passed
-docker compose up -d   → midnight-node, midnight-indexer, midnight-proof-server all healthy
+```bash
+npm run prepare:contract
+npm run sync:zk-assets
 ```
 
-Notes:
+Serves managed keys/zkir at **`/zk/moat/`** (`web/public/zk/moat`). Atharv pairs `FetchZkConfigProvider` with that base URL.
 
-- Compose adapted from `midnightntwrk/midnight-local-dev` `standalone.yml` (official images/tags).
-- Indexer passwords / `APP__INFRA__SECRET` are **local-dev defaults only**.
-- Full undeployed txs still need genesis wallet funding / DUST registration (use midnight-local-dev CLI or document when real-client lands). Proof server alone is enough to start generating proofs once a client exists.
-- Containers are Compose project-namespaced (no fixed `container_name`) to avoid collisions with other Midnight stacks.
+## Preprod deploy — Lace browser (canonical)
 
-## Not done yet (next pieces)
+**One prep command (repo root, no Docker/WSL required if Compact artifacts already exist):**
 
-1. Real Midnight client wired to compiled contract (providers + deploy address)
-2. Full Compact circuit transition tests (simulator / proof path)
-3. Deploy (deferred — last)
-4. Genesis funding helper for undeployed (optional; midnight-local-dev covers this)
+```bash
+npm run deploy:lace
+```
 
-## Blockers
+That prepares contract + syncs `/zk/moat/` + builds `@latch/api` and prints the Lace snippet.
 
-- None for bringing the local stack up healthy.
-- Real deploy / Preprod still blocked on funded wallet + real client.
-- Contract address for undeployed: **[CORE FACT REQUIRED]** after deploy step.
+**Exact browser call once Lace providers exist** (avoids `deployContract` indexer hang):
+
+```ts
+const { contractAddress, txId } = await deployMoatContractLowLevel(providers);
+```
+
+Full wiring:
+
+```ts
+import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
+import {
+  PREPROD_ENDPOINTS,
+  createMoatProviders,
+  deployMoatContractLowLevel,
+  waitForMoatContract,
+} from '@latch/api';
+
+const zk = new FetchZkConfigProvider(
+  import.meta.env.VITE_ZK_ASSET_BASE_URL ?? '/zk/moat/',
+);
+
+const providers = createMoatProviders({
+  endpoints: {
+    ...PREPROD_ENDPOINTS,
+    // prefer Lace session.configuration URIs when present
+  },
+  walletAndMidnightProvider, // Atharv: Lace ConnectedAPI → WalletProvider & MidnightProvider
+  zkConfigProvider: zk,
+});
+
+const { contractAddress, txId } = await deployMoatContractLowLevel(providers);
+await waitForMoatContract(providers, contractAddress); // optional
+// → set VITE_MOAT_CONTRACT_ADDRESS=<contractAddress>
+```
+
+Faucet: https://faucet.preprod.midnight.network/
+
+**[CORE FACT REQUIRED]** Preprod `VITE_MOAT_CONTRACT_ADDRESS`: fill after Lace `deployMoatContractLowLevel` succeeds.
+
+Do **not** run `npm run deploy:preprod` / WalletFacade full Preprod sync on Windows (OOM / multi-hour hang).
+
+## Deploy (undeployed) — local Docker only 2026-07-19
+
+**Not for Atharv / public internet.** Local address (this Docker volume only):
+
+`0783e0c4931a6b9d7e4df86b7c97916a9d3d753521ded864c3ae828d411b9c48`
+
+```bash
+npm run local:up && npm run deploy:local
+```
+
+## Not done yet
+
+1. Atharv: Lace providers → `deployMoatContractLowLevel` → record Preprod address
+2. Wire `VITE_MOAT_CONTRACT_ADDRESS` + join / `createConfiguredMoatClient`
+3. Full Compact circuit simulator / proof-path integration tests
+
+## Blockers / limitations
+
+- Browser `RealMoatClient` needs Atharv’s funded Lace/1AM `WalletProvider & MidnightProvider`.
+- In-memory private state is **not encrypted** — session-only for the hackathon.
+- `registerAgentSecret` is mandatory before `createCapability`.
+- Genesis seed is **local-dev only** — never reuse on Preprod/mainnet.
+- Local undeployed address is **not** the internet handoff.
 
 ## Handoff notes for Atharv
 
-- Demo mode: no Docker required (`MockMoatClient`, `MIDNIGHT_NETWORK=demo`).
-- Local real mode: `npm run local:up`, then use `UNDEPLOYED_ENDPOINTS` / `.env.example`.
-- Import network helpers from `@latch/api` (`endpointsFromEnv`, `UNDEPLOYED_ENDPOINTS`).
-- Real `MoatClient` still throws `CoreHandoffRequiredError` until the real-client branch lands.
-- Circuits available: `createCapability`, `authorizeSpend`, `revokeCapability`.
+- Demo: `MockMoatClient` (`MIDNIGHT_NETWORK=demo`).
+- Real Preprod: set `VITE_MOAT_CONTRACT_ADDRESS` from Preprod deploy → connect Lace/1AM on Preprod → `joinMoatContract` / `createConfiguredMoatClient` with injected wallet providers.
+- Env: `.env.example` (`PROOF_SERVER_URL`, Preprod indexer/node, `MIDNIGHT_PREPROD_SEED` local-only).
+- Packages: `@midnight-ntwrk/compact-js@2.5.1`, `@midnight-ntwrk/midnight-js-*@4.1.1`.

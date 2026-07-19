@@ -5,7 +5,9 @@ import {
   DEFAULT_REAL_NETWORK,
   MidnightWalletConnector,
   SUPPORTED_CONNECTOR_RANGE,
+  WALLET_DIAGNOSTIC_EVENT,
   toPublicWalletError,
+  type WalletDiagnosticEvent,
 } from './midnight-wallet-connector';
 
 interface ConnectedFixture {
@@ -81,6 +83,13 @@ function wallet(
   } as InitialAPI & { connect: ReturnType<typeof vi.fn> };
 }
 
+const fastPolling = {
+  authorizationTimeoutMs: 250,
+  readinessTimeoutMs: 250,
+  pollIntervalMs: 1,
+  probeTimeoutMs: 50,
+} as const;
+
 afterEach(() => {
   Reflect.deleteProperty(window, 'midnight');
 });
@@ -119,7 +128,7 @@ describe('MidnightWalletConnector discovery', () => {
     );
   });
 
-  it('uses Object.values of the injected registry and preserves every wallet/version', () => {
+  it('enumerates the injected registry and preserves every wallet/version', () => {
     const firstConnection = connectedFixture();
     const secondConnection = connectedFixture();
     const first = wallet('Nova', firstConnection.api);
@@ -147,12 +156,19 @@ describe('MidnightWalletConnector discovery', () => {
     const fixture = connectedFixture();
     const validRaster = `data:image/png;base64,${'a'.repeat(64)}`;
     const name = `${'<script>steal()</script>\u0000\u202e'.repeat(8)}${'x'.repeat(120)}`;
-    const safe = wallet(name, fixture.api, { icon: validRaster });
-    const javascriptIcon = wallet('Remote icon', fixture.api, { icon: 'javascript:alert(1)' });
+    const safe = wallet(name, fixture.api, { icon: validRaster, rdns: 'dev.latch.safe' });
+    const javascriptIcon = wallet('Remote icon', fixture.api, {
+      icon: 'javascript:alert(1)',
+      rdns: 'dev.latch.javascript',
+    });
     const svgIcon = wallet('SVG icon', fixture.api, {
       icon: 'data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+',
+      rdns: 'dev.latch.svg',
     });
-    const remoteIcon = wallet('Tracker', fixture.api, { icon: 'https://tracker.invalid/icon.png' });
+    const remoteIcon = wallet('Tracker', fixture.api, {
+      icon: 'https://tracker.invalid/icon.png',
+      rdns: 'dev.latch.remote',
+    });
     const throwingMetadata = {
       get name() {
         throw new Error('secret wallet state');
@@ -203,6 +219,17 @@ describe('MidnightWalletConnector discovery', () => {
     });
   });
 
+  it('deduplicates registry aliases that reference the same provider object', () => {
+    const fixture = connectedFixture();
+    const lace = wallet('lace', fixture.api, { rdns: 'io.lace' });
+    const connector = new MidnightWalletConnector(() => ({
+      '1c30c60a-3684-4d51-b59d-408e13d6c781': lace,
+      'bcd0b6bc-48db-41d3-aea7-0ba197b25257': lace,
+    }));
+
+    expect(connector.discover()).toHaveLength(1);
+  });
+
   it.each([
     ['3.9.9', false],
     ['5.0.0', false],
@@ -228,7 +255,7 @@ describe('MidnightWalletConnector connection', () => {
     const firstFixture = connectedFixture();
     const secondFixture = connectedFixture();
     const first = wallet('First', firstFixture.api);
-    const second = wallet('Second', secondFixture.api);
+    const second = wallet('Second', secondFixture.api, { rdns: 'dev.latch.second' });
     const connector = new MidnightWalletConnector(() => ({ first, second }));
     const options = connector.discover();
 
@@ -262,6 +289,10 @@ describe('MidnightWalletConnector connection', () => {
     const result = connector.connect(option!.id).finally(() => {
       settled = true;
     });
+
+    // The Connector API call must occur before the async flow yields so Lace
+    // receives the browser's original user activation and can open its prompt.
+    expect(injected.connect).toHaveBeenCalledOnce();
     await Promise.resolve();
 
     expect(settled).toBe(false);
@@ -287,6 +318,127 @@ describe('MidnightWalletConnector connection', () => {
     expect(fixture.getConnectionStatus).toHaveBeenCalledTimes(2);
     expect(fixture.getConfiguration).toHaveBeenCalledOnce();
     for (const call of fixture.sensitiveCalls) expect(call).not.toHaveBeenCalled();
+  });
+
+  it('uses the current Lace alias and accepts the real direct API shape without hintUsage', async () => {
+    const getConnectionStatus = vi.fn().mockResolvedValue({ status: 'connected', networkId: 'preprod' });
+    const getConfiguration = vi.fn().mockResolvedValue({
+      indexerUri: 'https://indexer.invalid/',
+      indexerWsUri: 'wss://indexer.invalid/',
+      substrateNodeUri: 'https://node.invalid/',
+      proverServerUri: 'https://prover.invalid/',
+      networkId: 'preprod',
+    });
+    const laceApi = { getConnectionStatus, getConfiguration } as unknown as ConnectedAPI;
+    const staleConnect = vi.fn().mockResolvedValue({});
+    const currentConnect = vi.fn().mockResolvedValue(laceApi);
+    const staleWrapper = wallet('lace', laceApi, { rdns: 'io.lace', connect: staleConnect });
+    const currentWrapper = wallet('lace', laceApi, { rdns: 'io.lace', connect: currentConnect });
+    const diagnostics: WalletDiagnosticEvent[] = [];
+    const connector = new MidnightWalletConnector(
+      () => ({
+        '1c30c60a-3684-4d51-b59d-408e13d6c781': staleWrapper,
+        'bcd0b6bc-48db-41d3-aea7-0ba197b25257': currentWrapper,
+      }),
+      { diagnosticSink: (event) => diagnostics.push(event) },
+    );
+
+    const options = connector.discover();
+    expect(options).toHaveLength(1);
+    await expect(connector.connect(options[0]!.id)).resolves.toMatchObject({
+      snapshot: { connectionState: 'connected', networkId: 'preprod', walletName: 'lace' },
+    });
+
+    expect(staleConnect).not.toHaveBeenCalled();
+    expect(currentConnect).toHaveBeenCalledOnce();
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'discovery',
+        status: 'succeeded',
+        providerCount: 1,
+        registryAliasCount: 2,
+        aliasesShareObject: false,
+        aliasesShareConnect: false,
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'api_resolution',
+        status: 'succeeded',
+        apiSurface: 'direct',
+        hasConnectionStatus: true,
+        hasConfiguration: true,
+        hasHintUsage: false,
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'network_validation',
+        status: 'succeeded',
+        configurationNetworkMatches: true,
+        indexerUriScheme: 'https',
+        indexerWsUriScheme: 'wss',
+        substrateNodeUriScheme: 'https',
+        proverServerUriScheme: 'https',
+      }),
+    );
+  });
+
+  it('emits fixed-schema browser diagnostics without wallet-controlled private data', async () => {
+    const fixture = connectedFixture();
+    const privateValue = 'mn_private_wallet_value_must_not_be_logged';
+    const injected = Object.assign(wallet('Diagnostic wallet', fixture.api), { privateValue });
+    const events: WalletDiagnosticEvent[] = [];
+    const listener = (event: Event) => events.push((event as CustomEvent<WalletDiagnosticEvent>).detail);
+    window.addEventListener(WALLET_DIAGNOSTIC_EVENT, listener);
+
+    try {
+      const connector = new MidnightWalletConnector(() => ({ lace: injected }));
+      const [option] = connector.discover();
+      await connector.connect(option!.id);
+      connector.reportReactState('connected');
+    } finally {
+      window.removeEventListener(WALLET_DIAGNOSTIC_EVENT, listener);
+    }
+
+    expect(events.map((event) => event.stage)).toEqual(
+      expect.arrayContaining([
+        'discovery',
+        'provider_selection',
+        'authorization_check',
+        'api_resolution',
+        'network_validation',
+        'react_state',
+      ]),
+    );
+    expect(JSON.stringify(events)).not.toContain(privateValue);
+    const allowedKeys = new Set([
+      'stage',
+      'status',
+      'providerId',
+      'networkId',
+      'authorization',
+      'attempt',
+      'providerCount',
+      'errorCode',
+      'reactState',
+      'apiSurface',
+      'hasConnectionStatus',
+      'hasConfiguration',
+      'hasHintUsage',
+      'registryAliasCount',
+      'aliasesShareObject',
+      'aliasesShareConnect',
+      'hasConfigurationNetwork',
+      'configurationNetworkMatches',
+      'indexerUriScheme',
+      'indexerWsUriScheme',
+      'substrateNodeUriScheme',
+      'proverServerUriScheme',
+    ]);
+    for (const event of events) {
+      expect(Object.keys(event).every((key) => allowedKeys.has(key))).toBe(true);
+    }
   });
 
   it('preserves each wallet method receiver without exposing extra authority', async () => {
@@ -326,7 +478,9 @@ describe('MidnightWalletConnector connection', () => {
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id)).rejects.toMatchObject({ code: 'INCOMPATIBLE_WALLET' });
-    await expect(connector.connect('wallet-from-an-old-discovery')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(connector.connect('wallet-from-an-old-discovery')).rejects.toMatchObject({
+      code: 'PROVIDER_DISAPPEARED',
+    });
     expect(injected.connect).not.toHaveBeenCalled();
   });
 
@@ -345,27 +499,31 @@ describe('MidnightWalletConnector connection', () => {
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id)).rejects.toEqual({
-      code: 'WALLET_REJECTED',
+      code: 'USER_REJECTED',
       message: 'The wallet connection request was declined.',
       retryable: true,
     });
 
-    const mapped = toPublicWalletError({ code: 'WALLET_REJECTED', message: rawSecret, retryable: false });
+    const mapped = toPublicWalletError({ code: 'USER_REJECTED', message: rawSecret, retryable: false });
     expect(JSON.stringify(mapped)).not.toContain(rawSecret);
     expect(mapped).toEqual({
-      code: 'WALLET_REJECTED',
+      code: 'USER_REJECTED',
       message: 'The wallet connection request was declined.',
       retryable: true,
     });
   });
 
-  it('reports a disconnected session without guessing that the wallet is locked', async () => {
+  it('reports a wallet that remains disconnected as locked after a bounded poll', async () => {
     const fixture = connectedFixture({ status: { status: 'disconnected' } });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Locked', fixture.api) }));
+    const injected = wallet('Locked', fixture.api);
+    const connector = new MidnightWalletConnector(
+      () => ({ injected }),
+      fastPolling,
+    );
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id)).rejects.toMatchObject({
-      code: 'UNKNOWN',
+      code: 'WALLET_LOCKED',
       retryable: true,
     });
     expect(fixture.getConfiguration).not.toHaveBeenCalled();
@@ -373,7 +531,8 @@ describe('MidnightWalletConnector connection', () => {
 
   it('rejects a status network mismatch', async () => {
     const fixture = connectedFixture({ status: { status: 'connected', networkId: 'preview' } });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Wrong status', fixture.api) }));
+    const injected = wallet('Wrong status', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id, 'preprod')).rejects.toMatchObject({ code: 'WRONG_NETWORK' });
@@ -382,7 +541,8 @@ describe('MidnightWalletConnector connection', () => {
 
   it('rejects a configuration network mismatch after status validation', async () => {
     const fixture = connectedFixture({ config: configuration('preview') });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Wrong config', fixture.api) }));
+    const injected = wallet('Wrong config', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id, 'preprod')).rejects.toMatchObject({
@@ -397,7 +557,8 @@ describe('MidnightWalletConnector connection', () => {
     fixture.getConnectionStatus
       .mockResolvedValueOnce({ status: 'connected', networkId: 'preprod' })
       .mockResolvedValueOnce({ status: 'connected', networkId: 'preview' });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Switching', fixture.api) }));
+    const injected = wallet('Switching', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id)).rejects.toMatchObject({ code: 'WRONG_NETWORK' });
@@ -407,7 +568,8 @@ describe('MidnightWalletConnector connection', () => {
   it('copies a validated configuration instead of exposing the wallet-controlled object', async () => {
     const rawConfiguration = configuration();
     const fixture = connectedFixture({ config: rawConfiguration });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Config copy', fixture.api) }));
+    const injected = wallet('Config copy', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     const session = await connector.connect(option!.id);
@@ -425,7 +587,8 @@ describe('MidnightWalletConnector connection', () => {
       },
     });
     const fixture = connectedFixture({ config: hostileConfiguration });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Getter safe', fixture.api) }));
+    const injected = wallet('Getter safe', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     let caught: unknown;
@@ -436,8 +599,8 @@ describe('MidnightWalletConnector connection', () => {
     }
 
     expect(caught).toEqual({
-      code: 'UNKNOWN',
-      message: 'The wallet could not be connected. Try again.',
+      code: 'CONNECTOR_ERROR',
+      message: 'The wallet connector returned an invalid or unexpected response. Try again.',
       retryable: true,
     });
     expect(JSON.stringify(caught)).not.toContain(privateReason);
@@ -445,7 +608,8 @@ describe('MidnightWalletConnector connection', () => {
 
   it('revalidates a connected session without requesting additional permissions', async () => {
     const fixture = connectedFixture();
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Still connected', fixture.api) }));
+    const injected = wallet('Still connected', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
     const session = await connector.connect(option!.id);
     fixture.hintUsage.mockClear();
@@ -464,15 +628,17 @@ describe('MidnightWalletConnector connection', () => {
   it.each([
     { ...configuration(), indexerUri: 'http://indexer.invalid' },
     { ...configuration(), indexerWsUri: 'ws://indexer.invalid' },
+    { ...configuration(), substrateNodeUri: 'http://node.invalid' },
     { ...configuration(), substrateNodeUri: 'wss://user:secret@node.invalid' },
   ])('rejects unsafe Preprod service configuration without disclosing it', async (unsafeConfig) => {
     const fixture = connectedFixture({ config: unsafeConfig });
-    const connector = new MidnightWalletConnector(() => ({ injected: wallet('Unsafe config', fixture.api) }));
+    const injected = wallet('Unsafe config', fixture.api);
+    const connector = new MidnightWalletConnector(() => ({ injected }));
     const [option] = connector.discover();
 
     await expect(connector.connect(option!.id)).rejects.toEqual({
-      code: 'UNKNOWN',
-      message: 'The wallet could not be connected. Try again.',
+      code: 'CONNECTOR_ERROR',
+      message: 'The wallet connector returned an invalid or unexpected response. Try again.',
       retryable: true,
     });
   });
@@ -503,17 +669,17 @@ describe('MidnightWalletConnector connection', () => {
 
     const mapped = toPublicWalletError(hostile);
     expect(mapped).toEqual({
-      code: 'UNKNOWN',
-      message: 'The wallet could not be connected. Try again.',
+      code: 'CONNECTOR_ERROR',
+      message: 'The wallet connector returned an invalid or unexpected response. Try again.',
       retryable: true,
     });
     expect(JSON.stringify(mapped)).not.toContain(rawSecret);
   });
 
   it.each([
-    ['Disconnected', 'UNKNOWN'],
-    ['InvalidRequest', 'UNKNOWN'],
-    ['InternalError', 'UNKNOWN'],
+    ['Disconnected', 'WALLET_LOCKED'],
+    ['InvalidRequest', 'CONNECTOR_ERROR'],
+    ['InternalError', 'CONNECTOR_ERROR'],
   ])('maps connector API code %s to fixed %s copy', (code, publicCode) => {
     expect(
       toPublicWalletError({
@@ -522,5 +688,160 @@ describe('MidnightWalletConnector connection', () => {
         reason: 'private extension reason',
       }),
     ).toMatchObject({ code: publicCode });
+  });
+
+  it('authorizes a first-time Lace session from the explicit connection call', async () => {
+    const fixture = connectedFixture();
+    const injected = Object.assign(wallet('Lace', fixture.api), {
+      isEnabled: vi.fn().mockReturnValue(false),
+      enable: vi.fn().mockResolvedValue(fixture.api),
+    });
+    const connector = new MidnightWalletConnector(() => ({ lace: injected }));
+    const [option] = connector.discover();
+
+    const connection = connector.connect(option!.id);
+
+    expect(injected.isEnabled).toHaveBeenCalledOnce();
+    expect(injected.enable).toHaveBeenCalledOnce();
+    await connection;
+    expect(injected.connect).not.toHaveBeenCalled();
+    expect(fixture.getConnectionStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('retrieves an already-authorized Lace API without requiring the connector prompt path', async () => {
+    const fixture = connectedFixture();
+    const injected = Object.assign(wallet('Lace', fixture.api), {
+      isEnabled: vi.fn().mockResolvedValue(true),
+      enable: vi.fn().mockResolvedValue(fixture.api),
+    });
+    const connector = new MidnightWalletConnector(() => ({ lace: injected }));
+    const [option] = connector.discover();
+
+    await connector.connect(option!.id);
+
+    expect(injected.isEnabled).toHaveBeenCalledOnce();
+    expect(injected.enable).toHaveBeenCalledOnce();
+    expect(injected.connect).not.toHaveBeenCalled();
+    expect(fixture.hintUsage).not.toHaveBeenCalled();
+  });
+
+  it('maps an authorization rejection to USER_REJECTED without exposing the wallet reason', async () => {
+    const fixture = connectedFixture();
+    const secret = 'private Lace authorization state';
+    const diagnostics: WalletDiagnosticEvent[] = [];
+    const injected = Object.assign(wallet('Lace', fixture.api), {
+      address: 'mn_addr_private_value_must_not_be_logged',
+      isEnabled: vi.fn().mockResolvedValue(false),
+      enable: vi.fn().mockRejectedValue({
+        type: 'DAppConnectorAPIError',
+        code: 'PermissionRejected',
+        reason: secret,
+      }),
+    });
+    const connector = new MidnightWalletConnector(
+      () => ({ lace: injected }),
+      { ...fastPolling, diagnosticSink: (event) => diagnostics.push(event) },
+    );
+    const [option] = connector.discover();
+
+    let caught: unknown;
+    try {
+      await connector.connect(option!.id);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toMatchObject({ code: 'USER_REJECTED' });
+    expect(JSON.stringify(caught)).not.toContain(secret);
+    expect(JSON.stringify(diagnostics)).not.toContain(secret);
+    expect(JSON.stringify(diagnostics)).not.toContain('mn_addr_private_value_must_not_be_logged');
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ stage: 'authorization_request', status: 'failed', errorCode: 'USER_REJECTED' }),
+    );
+    expect(injected.connect).not.toHaveBeenCalled();
+  });
+
+  it('returns AUTHORIZATION_TIMEOUT when a first-time authorization request never settles', async () => {
+    const fixture = connectedFixture();
+    const injected = Object.assign(wallet('Lace', fixture.api), {
+      isEnabled: vi.fn().mockResolvedValue(false),
+      enable: vi.fn(() => new Promise<never>(() => undefined)),
+    });
+    const connector = new MidnightWalletConnector(() => ({ lace: injected }), fastPolling);
+    const [option] = connector.discover();
+
+    await expect(connector.connect(option!.id)).rejects.toMatchObject({ code: 'AUTHORIZATION_TIMEOUT' });
+    expect(injected.enable).toHaveBeenCalledOnce();
+    expect(injected.connect).not.toHaveBeenCalled();
+  });
+
+  it('waits through a delayed connected status instead of failing the first probe', async () => {
+    const fixture = connectedFixture();
+    fixture.getConnectionStatus
+      .mockResolvedValueOnce({ status: 'disconnected' })
+      .mockResolvedValueOnce({ status: 'disconnected' })
+      .mockResolvedValue({ status: 'connected', networkId: 'preprod' });
+    const diagnostics: WalletDiagnosticEvent[] = [];
+    const injected = wallet('Delayed Lace', fixture.api);
+    const connector = new MidnightWalletConnector(
+      () => ({ lace: injected }),
+      { ...fastPolling, diagnosticSink: (event) => diagnostics.push(event) },
+    );
+    const [option] = connector.discover();
+
+    await expect(connector.connect(option!.id)).resolves.toMatchObject({
+      snapshot: { connectionState: 'connected', networkId: 'preprod' },
+    });
+    expect(fixture.getConnectionStatus).toHaveBeenCalledTimes(4);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ stage: 'network_validation', status: 'retrying', attempt: 1 }),
+    );
+  });
+
+  it('invalidates a wrong-network session and reconnects with the provider rediscovered under the same key', async () => {
+    const firstFixture = connectedFixture();
+    const secondFixture = connectedFixture();
+    const firstProvider = wallet('Lace', firstFixture.api);
+    const secondProvider = wallet('Lace', secondFixture.api);
+    const registry: Record<string, InitialAPI> = { lace: firstProvider };
+    const diagnostics: WalletDiagnosticEvent[] = [];
+    const connector = new MidnightWalletConnector(
+      () => registry,
+      { ...fastPolling, diagnosticSink: (event) => diagnostics.push(event) },
+    );
+    const [option] = connector.discover();
+    const firstSession = await connector.connect(option!.id);
+    firstFixture.getConnectionStatus.mockResolvedValue({ status: 'connected', networkId: 'preview' });
+
+    await expect(connector.revalidate(firstSession)).rejects.toMatchObject({ code: 'WRONG_NETWORK' });
+    registry.lace = secondProvider;
+    const secondSession = await connector.connect(option!.id);
+
+    expect(secondSession.snapshot.networkId).toBe('preprod');
+    expect(firstProvider.connect).toHaveBeenCalledOnce();
+    expect(secondProvider.connect).toHaveBeenCalledOnce();
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        stage: 'provider_invalidation',
+        status: 'invalidated',
+        errorCode: 'WRONG_NETWORK',
+      }),
+    );
+  });
+
+  it('does not call a stale provider when Lace replaces it after discovery', async () => {
+    const staleFixture = connectedFixture();
+    const freshFixture = connectedFixture();
+    const staleProvider = wallet('Lace', staleFixture.api);
+    const freshProvider = wallet('Lace', freshFixture.api);
+    const registry: Record<string, InitialAPI> = { lace: staleProvider };
+    const connector = new MidnightWalletConnector(() => registry);
+    const [option] = connector.discover();
+    registry.lace = freshProvider;
+
+    await connector.connect(option!.id);
+
+    expect(staleProvider.connect).not.toHaveBeenCalled();
+    expect(freshProvider.connect).toHaveBeenCalledOnce();
   });
 });
