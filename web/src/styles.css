@@ -1294,6 +1294,72 @@ h1 {
   line-height: 1.55;
 }
 
+.wallet-connected-handoff {
+  display: grid;
+  gap: 12px;
+}
+
+.wallet-deployment-proof {
+  border: 1px solid #c6cedc;
+  border-radius: 12px;
+  background: #f7f8fb;
+  color: #354158;
+  padding: 14px 16px;
+}
+
+.wallet-deployment-proof summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 780;
+}
+
+.wallet-deployment-proof-content {
+  display: grid;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.wallet-deployment-proof-content > p {
+  margin: 0;
+  color: #59677d;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.wallet-deployment-proof dl,
+.wallet-deployment-proof dl > div {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.wallet-deployment-proof dl {
+  gap: 12px;
+}
+
+.wallet-deployment-proof dt {
+  color: #59677d;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.wallet-deployment-proof dd {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: #26344b;
+  font-size: 0.74rem;
+}
+
+.wallet-deployment-proof code {
+  overflow-wrap: anywhere;
+  font-size: 0.68rem;
+}
+
+.wallet-deployment-proof .button {
+  justify-self: start;
+}
+
 .wallet-demo-fallback .button {
   width: 100%;
   margin-top: 22px;
