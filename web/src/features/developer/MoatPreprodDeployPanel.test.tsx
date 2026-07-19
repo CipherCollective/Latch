@@ -5,6 +5,7 @@ import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import type { ConnectedWalletSession } from '../../wallet/midnight-wallet-connector';
 import { MoatPreprodDeployPanel } from './MoatPreprodDeployPanel';
 import type { MoatDeploymentResult } from './lace-moat-deploy';
+import { DeveloperRouteFailure } from './developer-route-diagnostics';
 
 const connectedSession = (networkId = 'preprod'): ConnectedWalletSession =>
   ({
@@ -77,14 +78,29 @@ describe('MoatPreprodDeployPanel', () => {
     await screen.findByText('contract-preprod-123');
   });
 
-  it('shows the recoverable deployment failure text', async () => {
-    const deploy = vi.fn().mockRejectedValue(new Error('Lace could not balance the deployment transaction. Check wallet approval and try later.'));
+  it('shows a privacy-safe deployment failure diagnostic', async () => {
+    const privateValue = 'wallet_payload_must_not_render';
+    const deploy = vi.fn().mockRejectedValue(new Error(privateValue));
     render(<MoatPreprodDeployPanel session={connectedSession()} connectedApi={laceApi} deploy={deploy} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Deploy Moat contract on Preprod' }));
 
-    expect(
-      await screen.findByText('Lace could not balance the deployment transaction. Check wallet approval and try later.'),
-    ).toBeVisible();
+    expect(await screen.findByText('deployment_submission')).toBeVisible();
+    expect(screen.getByText('Error')).toBeVisible();
+    expect(document.body).not.toHaveTextContent(privateValue);
+  });
+
+  it('identifies provider adapter construction failures without exposing the provider error', async () => {
+    const privateValue = 'private_provider_configuration_must_not_render';
+    const deploy = vi.fn().mockRejectedValue(
+      new DeveloperRouteFailure('provider_adapter_construction', new TypeError(privateValue)),
+    );
+    render(<MoatPreprodDeployPanel session={connectedSession()} connectedApi={laceApi} deploy={deploy} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deploy Moat contract on Preprod' }));
+
+    expect(await screen.findByText('provider_adapter_construction')).toBeVisible();
+    expect(screen.getByText('TypeError')).toBeVisible();
+    expect(document.body).not.toHaveTextContent(privateValue);
   });
 });

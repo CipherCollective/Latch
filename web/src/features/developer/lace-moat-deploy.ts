@@ -11,14 +11,13 @@ import {
 } from '../../../../api/src/browser.ts';
 
 import type { ConnectedWalletSession } from '../../wallet/midnight-wallet-connector';
+import { DeveloperRouteFailure } from './developer-route-diagnostics';
 
 export type MoatDeploymentResult = {
   contractAddress: string;
   txId: string;
   waitForIndexer: () => Promise<void>;
 };
-
-class DeveloperDeploymentError extends Error {}
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -27,7 +26,7 @@ function toHex(bytes: Uint8Array): string {
 function fromHex(value: string): Uint8Array {
   const normalized = value.startsWith('0x') ? value.slice(2) : value;
   if (!/^(?:[0-9a-f]{2})*$/i.test(normalized)) {
-    throw new DeveloperDeploymentError('Lace returned an invalid balanced transaction. Do not retry yet.');
+    throw new DeveloperRouteFailure('deployment_submission', new TypeError('invalid balanced transaction'));
   }
   const bytes = new Uint8Array(normalized.length / 2);
   for (let index = 0; index < normalized.length; index += 2) {
@@ -40,8 +39,8 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
   let shieldedAddresses: Awaited<ReturnType<ConnectedAPI['getShieldedAddresses']>>;
   try {
     shieldedAddresses = await api.getShieldedAddresses();
-  } catch {
-    throw new DeveloperDeploymentError('Lace could not provide the keys needed to prepare this deployment.');
+  } catch (error) {
+    throw new DeveloperRouteFailure('provider_adapter_construction', error);
   }
 
   return {
@@ -51,16 +50,17 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
       let balanced: { tx?: unknown };
       try {
         balanced = await api.balanceUnsealedTransaction(toHex(transaction.serialize()));
-      } catch {
-        throw new DeveloperDeploymentError('Lace could not balance the deployment transaction. Check wallet approval and try later.');
+      } catch (error) {
+        throw new DeveloperRouteFailure('deployment_submission', error);
       }
       if (typeof balanced.tx !== 'string') {
-        throw new DeveloperDeploymentError('Lace returned no balanced deployment transaction. Do not retry yet.');
+        throw new DeveloperRouteFailure('deployment_submission', new TypeError('missing balanced transaction'));
       }
       try {
         return Transaction.deserialize('signature', 'proof', 'binding', fromHex(balanced.tx)) as never;
-      } catch {
-        throw new DeveloperDeploymentError('Lace returned an invalid balanced transaction. Do not retry yet.');
+      } catch (error) {
+        if (error instanceof DeveloperRouteFailure) throw error;
+        throw new DeveloperRouteFailure('deployment_submission', error);
       }
     },
     async submitTx(transaction: Parameters<WalletAndMidnightProvider['submitTx']>[0]) {
@@ -68,8 +68,8 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
       let submitted: unknown;
       try {
         submitted = await (api.submitTransaction as (tx: string) => Promise<unknown>)(serialized);
-      } catch {
-        throw new DeveloperDeploymentError('Lace could not submit the deployment transaction. Check the wallet and Preprod connection.');
+      } catch (error) {
+        throw new DeveloperRouteFailure('deployment_submission', error);
       }
       if (typeof submitted === 'string' && submitted) return submitted as never;
       if (submitted && typeof submitted === 'object') {
@@ -77,9 +77,7 @@ async function createWalletAndMidnightProvider(api: ConnectedAPI): Promise<Walle
         if (typeof candidate.transactionId === 'string' && candidate.transactionId) return candidate.transactionId as never;
         if (typeof candidate.id === 'string' && candidate.id) return candidate.id as never;
       }
-      throw new DeveloperDeploymentError(
-        'Lace submitted the transaction but did not return a transaction ID. Verify wallet activity before trying again.',
-      );
+      throw new DeveloperRouteFailure('deployment_submission', new TypeError('missing transaction id'));
     },
   };
 }
@@ -91,7 +89,7 @@ function assertPreprodSession(session: ConnectedWalletSession): void {
     session.snapshot.networkId !== 'preprod' ||
     session.configuration.networkId !== 'preprod'
   ) {
-    throw new DeveloperDeploymentError('Connect Lace to Midnight Preprod before deploying.');
+    throw new DeveloperRouteFailure('deployment_precondition', new Error('wrong network'));
   }
 }
 
@@ -101,34 +99,46 @@ export async function deployMoatWithLace(
   api: ConnectedAPI | null,
 ): Promise<MoatDeploymentResult> {
   if (!session || !api) {
-    throw new DeveloperDeploymentError('Connect Lace to Midnight Preprod before deploying.');
+    throw new DeveloperRouteFailure('deployment_precondition', new Error('missing session'));
   }
   assertPreprodSession(session);
 
   try {
     const status = await api.getConnectionStatus();
     if (status.status !== 'connected' || status.networkId !== 'preprod') {
-      throw new DeveloperDeploymentError('Lace is no longer connected to Midnight Preprod. Reconnect before deploying.');
+      throw new DeveloperRouteFailure('deployment_precondition', new Error('disconnected'));
     }
   } catch (error) {
-    if (error instanceof DeveloperDeploymentError) throw error;
-    throw new DeveloperDeploymentError('Lace connection could not be confirmed. Reconnect before deploying.');
+    if (error instanceof DeveloperRouteFailure) throw error;
+    throw new DeveloperRouteFailure('deployment_precondition', error);
   }
 
-  const zkConfigProvider = new FetchZkConfigProvider<MoatCircuitId>(
-    import.meta.env.VITE_ZK_ASSET_BASE_URL ?? '/zk/moat/',
-  );
-  const providers = createMoatProviders({
-    endpoints: {
-      ...PREPROD_ENDPOINTS,
-      proofServer: session.configuration.proverServerUri ?? PREPROD_ENDPOINTS.proofServer,
-      indexerHttp: session.configuration.indexerUri,
-      indexerWs: session.configuration.indexerWsUri,
-      node: session.configuration.substrateNodeUri,
-    },
-    walletAndMidnightProvider: await createWalletAndMidnightProvider(api),
-    zkConfigProvider,
-  });
+  let zkConfigProvider: FetchZkConfigProvider<MoatCircuitId>;
+  try {
+    zkConfigProvider = new FetchZkConfigProvider<MoatCircuitId>(
+      import.meta.env.VITE_ZK_ASSET_BASE_URL ?? '/zk/moat/',
+    );
+  } catch (error) {
+    throw new DeveloperRouteFailure('zk_provider_initialization', error);
+  }
+
+  let providers: ReturnType<typeof createMoatProviders>;
+  try {
+    providers = createMoatProviders({
+      endpoints: {
+        ...PREPROD_ENDPOINTS,
+        proofServer: session.configuration.proverServerUri ?? PREPROD_ENDPOINTS.proofServer,
+        indexerHttp: session.configuration.indexerUri,
+        indexerWs: session.configuration.indexerWsUri,
+        node: session.configuration.substrateNodeUri,
+      },
+      walletAndMidnightProvider: await createWalletAndMidnightProvider(api),
+      zkConfigProvider,
+    });
+  } catch (error) {
+    if (error instanceof DeveloperRouteFailure) throw error;
+    throw new DeveloperRouteFailure('provider_adapter_construction', error);
+  }
 
   try {
     const deployment = await deployMoatContractLowLevel(providers);
@@ -138,9 +148,7 @@ export async function deployMoatWithLace(
       waitForIndexer: () => waitForMoatContract(providers, deployment.contractAddress),
     };
   } catch (error) {
-    if (error instanceof DeveloperDeploymentError) throw error;
-    throw new DeveloperDeploymentError(
-      'The deployment was not completed. Check Lace approval, the proof server, and Preprod connectivity before retrying.',
-    );
+    if (error instanceof DeveloperRouteFailure) throw error;
+    throw new DeveloperRouteFailure('deployment_submission', error);
   }
 }

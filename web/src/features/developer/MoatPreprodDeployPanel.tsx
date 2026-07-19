@@ -3,10 +3,15 @@ import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 
 import type { ConnectedWalletSession } from '../../wallet/midnight-wallet-connector';
 import { deployMoatWithLace, type MoatDeploymentResult } from './lace-moat-deploy';
+import {
+  DeveloperRouteDiagnosticView,
+  developerRouteDiagnostic,
+  type DeveloperRouteDiagnostic,
+} from './developer-route-diagnostics';
 
 type DeploymentPhase = 'ready' | 'deploying' | 'submitted' | 'error';
 
-type MoatPreprodDeployPanelProps = {
+export type MoatPreprodDeployPanelProps = {
   session: ConnectedWalletSession | null;
   connectedApi: ConnectedAPI | null;
   deploy?: (session: ConnectedWalletSession | null, api: ConnectedAPI | null) => Promise<MoatDeploymentResult>;
@@ -22,7 +27,7 @@ export function MoatPreprodDeployPanel({
 }: MoatPreprodDeployPanelProps) {
   const [phase, setPhase] = useState<DeploymentPhase>('ready');
   const [result, setResult] = useState<Pick<MoatDeploymentResult, 'contractAddress' | 'txId'> | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<DeveloperRouteDiagnostic | null>(null);
   const [indexerNotice, setIndexerNotice] = useState<string | null>(null);
   const inFlight = useRef(false);
 
@@ -36,7 +41,7 @@ export function MoatPreprodDeployPanel({
   const startDeployment = async () => {
     if (inFlight.current || phase === 'deploying') return;
     if (!canDeploy) {
-      setError('Connect Lace to Midnight Preprod before deploying.');
+      setError(developerRouteDiagnostic('deployment_precondition', new Error('precondition')));
       setPhase('error');
       return;
     }
@@ -54,11 +59,7 @@ export function MoatPreprodDeployPanel({
         () => setIndexerNotice('Transaction submitted. The Preprod indexer has not shown the contract yet.'),
       );
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'The deployment could not be completed. Check Lace and Preprod, then try later.',
-      );
+      setError(developerRouteDiagnostic('deployment_submission', caught));
       setPhase('error');
     } finally {
       inFlight.current = false;
@@ -83,11 +84,7 @@ export function MoatPreprodDeployPanel({
             Connect Lace to Midnight Preprod before deploying.
           </div>
         ) : null}
-        {error ? (
-          <div className="form-alert" role="alert" aria-live="assertive">
-            {error}
-          </div>
-        ) : null}
+        {error ? <DeveloperRouteDiagnosticView diagnostic={error} /> : null}
         {result ? (
           <div className="wallet-connected-summary" role="status" aria-live="polite">
             <strong>Deployment submitted</strong>
@@ -122,4 +119,3 @@ export function MoatPreprodDeployPanel({
     </section>
   );
 }
-
