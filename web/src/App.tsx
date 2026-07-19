@@ -298,7 +298,7 @@ function App() {
           </span>
           <span className={`mode-chip mode-chip-${selectedMode}`}>
             {selectedMode === 'demo'
-              ? 'Demo mode'
+              ? 'Policy simulator'
               : selectedMode === 'wallet' && walletSession
                 ? 'Preprod · Wallet connected'
                 : selectedMode === 'wallet'
@@ -399,10 +399,22 @@ function Landing({
           <h1 id="hero-title" ref={headingRef} tabIndex={-1}>Every payment must pass a private gate.</h1>
           <p className="hero-kicker">Give agents money. Not your wallet.</p>
           <p className="hero-subhead">
-            Delegate spending power under private rules. The deterministic demo models the full gate locally;
-            verified Midnight proofs and transactions remain disabled until the core handoff.
+            Explore the same capability rules implemented by the deployed Compact contract, with instant approval,
+            rejection, revocation, and replay-protection outcomes.
           </p>
           <ModeChooser onDemo={onDemo} onWallet={onWallet} />
+          <div className="simulation-honesty-label">Local simulation &middot; Contract-equivalent logic</div>
+          <div className="midnight-proof-strip" aria-label="Built on Midnight proof points">
+            <strong>Built on Midnight</strong>
+            <ul>
+              <li>Compact contract</li>
+              <li>3 private circuits</li>
+              <li>Live on Preprod</li>
+              <li>Lace wallet</li>
+              <li>Revocable capabilities</li>
+              <li>Automated test coverage</li>
+            </ul>
+          </div>
           <a className="architecture-link" href="#architecture">
             View protocol architecture
             <ArrowDown aria-hidden="true" size={16} />
