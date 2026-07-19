@@ -4,7 +4,8 @@ node_modules/
 .pnp.*
 
 # Compact / build outputs
-contract/src/managed/
+# contract/src/managed/ is tracked so Windows teammates can run prepare:contract
+# without the Compact compiler (regenerate via WSL `npm run compact` when source changes).
 contract/dist/
 **/dist/
 **/coverage/
