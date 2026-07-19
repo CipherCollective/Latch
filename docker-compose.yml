@@ -21,7 +21,7 @@ services:
     environment:
       RUST_BACKTRACE: 'full'
     healthcheck:
-      test: ['CMD-SHELL', 'nc -z 127.0.0.1 6300 || exit 1']
+      test: ['CMD-SHELL', 'curl -sf http://127.0.0.1:6300 >/dev/null || exit 1']
       interval: 10s
       timeout: 5s
       retries: 20

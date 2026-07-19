@@ -33,7 +33,8 @@
     "local:down": "docker compose down",
     "local:ps": "docker compose ps",
     "local:logs": "docker compose logs -f",
-    "local:proof": "docker compose up -d proof-server"
+    "local:proof": "docker compose up -d proof-server",
+    "deploy:local": "npm run prepare:contract && npm run build --workspace @latch/api && npm run deploy:local --workspace @latch/api"
   },
   "engines": {
     "node": ">=22.13.0 <23"

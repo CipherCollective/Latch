@@ -24,6 +24,9 @@ skills-lock.json
 !.env.example
 *.pem
 
+# Local undeployed deploy output (contains public contract address only, still machine-local)
+deployment.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

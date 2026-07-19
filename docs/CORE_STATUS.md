@@ -80,23 +80,39 @@ npm run typecheck:api   # exit 0
 npm run test:api        # 13 tests passed (includes compiled-contract smoke)
 ```
 
+## Deploy (undeployed) — done locally 2026-07-19
+
+Script: `api/scripts/deploy-undeployed.ts` → `npm run deploy:local`
+
+**[CORE FACT]** Local undeployed contract address (this machine / this Docker volume):
+
+`0783e0c4931a6b9d7e4df86b7c97916a9d3d753521ded864c3ae828d411b9c48`
+
+Also written to gitignored `deployment.json`. Re-running `deploy:local` on a fresh volume will mint a **new** address.
+
+```bash
+npm run local:up && npm run local:ps
+npm run deploy:local
+```
+
+Preprod deploy is separate (Atharv funded Lace/1AM or faucet-funded seed) — do **not** use the genesis seed there.
+
 ## Not done yet
 
-1. Live deploy against funded undeployed/Preprod wallet → fill `MOAT_CONTRACT_ADDRESS` (**[CORE FACT REQUIRED]**)
+1. Optional Preprod deploy + Atharv wallet handoff (browser providers)
 2. Full Compact circuit simulator / proof-path integration tests
-3. Genesis funding automation (use midnight-local-dev or faucet)
-4. Deploy last (as planned)
 
 ## Blockers / limitations
 
-- `RealMoatClient` needs a **funded** `WalletProvider & MidnightProvider` from Atharv (or a Node deploy script). This branch does not embed Lace/HD wallet secrets.
+- `RealMoatClient` for browser still needs Atharv’s funded `WalletProvider & MidnightProvider`.
 - In-memory private state is **not encrypted** — session-only for the hackathon.
 - `registerAgentSecret` is mandatory before `createCapability` so circuit `hashAgentKey(agentSecret)` opens the policy hash.
-- Contract address after deploy: still **[CORE FACT REQUIRED]** until deploy piece runs.
+- Genesis seed is **local-dev only** — never reuse on Preprod/mainnet.
+- Local `MOAT_CONTRACT_ADDRESS` is only valid while this undeployed node/volume persists.
 
 ## Handoff notes for Atharv
 
 - Demo: keep using `MockMoatClient` (`MIDNIGHT_NETWORK=demo`).
-- Real: `npm run local:up`, inject wallet providers, `joinMoatContract`/`deployMoatContract`, then `createConfiguredMoatClient`.
-- Env: see `.env.example` (`PROOF_SERVER_URL`, indexer/node URLs, optional `MOAT_ZK_ASSETS_PATH`, future `MOAT_CONTRACT_ADDRESS`).
+- Real local: `npm run local:up` → set `MOAT_CONTRACT_ADDRESS` from `deployment.json` / CORE_STATUS → inject wallet providers → `joinMoatContract` / `createConfiguredMoatClient`.
+- Env: see `.env.example` (`PROOF_SERVER_URL`, indexer/node URLs, optional `MOAT_ZK_ASSETS_PATH`, `MOAT_CONTRACT_ADDRESS`).
 - Packages pinned for runtime **0.16.0**: `@midnight-ntwrk/compact-js@2.5.1`, `@midnight-ntwrk/midnight-js-*@4.1.1`.
