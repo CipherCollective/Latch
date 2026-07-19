@@ -80,39 +80,80 @@ npm run typecheck:api   # exit 0
 npm run test:api        # 13 tests passed (includes compiled-contract smoke)
 ```
 
-## Deploy (undeployed) — done locally 2026-07-19
+## ZK assets for Atharv (browser)
 
-Script: `api/scripts/deploy-undeployed.ts` → `npm run deploy:local`
+After Compact compile:
 
-**[CORE FACT]** Local undeployed contract address (this machine / this Docker volume):
+```bash
+npm run prepare:contract
+npm run sync:zk-assets
+```
+
+Serves managed keys/zkir at **`/zk/moat/`** (`web/public/zk/moat`). Atharv pairs `FetchZkConfigProvider` with that base URL.
+
+## Low-level Preprod deploy helper (`@latch/api`)
+
+Prefer for Lace/1AM browser deploy (avoids `deployContract` indexer hang):
+
+```ts
+import {
+  PREPROD_ENDPOINTS,
+  createMoatProviders,
+  deployMoatContractLowLevel,
+  waitForMoatContract,
+  joinMoatContract,
+  createConfiguredMoatClient,
+  makeMoatCompiledContractBrowser,
+} from '@latch/api';
+
+// providers = createMoatProviders({ endpoints: PREPROD_ENDPOINTS, walletAndMidnightProvider, zkConfigProvider: fetchZk })
+const { contractAddress, txId } = await deployMoatContractLowLevel(providers); // useFileAssets defaults false
+await waitForMoatContract(providers, contractAddress); // optional
+// VITE_MOAT_CONTRACT_ADDRESS = contractAddress
+```
+
+## Deploy (undeployed) — local Docker only 2026-07-19
+
+**Not for Atharv / public internet.** Local address (this Docker volume only):
 
 `0783e0c4931a6b9d7e4df86b7c97916a9d3d753521ded864c3ae828d411b9c48`
 
-Also written to gitignored `deployment.json`. Re-running `deploy:local` on a fresh volume will mint a **new** address.
-
 ```bash
-npm run local:up && npm run local:ps
-npm run deploy:local
+npm run local:up && npm run deploy:local
 ```
 
-Preprod deploy is separate (Atharv funded Lace/1AM or faucet-funded seed) — do **not** use the genesis seed there.
+## Deploy (Preprod) — public testnet handoff
+
+Script: `api/scripts/deploy-preprod.ts` → `npm run deploy:preprod`
+
+Uses public Preprod node/indexer + **local proof server** (`npm run local:proof`). Requires a funded Preprod seed (`MIDNIGHT_PREPROD_SEED`) — never the local genesis seed, never commit, never paste into chat. Faucet: https://faucet.preprod.midnight.network/
+
+```bash
+npm run local:proof
+npm run deploy:preprod
+# → prints MOAT_CONTRACT_ADDRESS=…
+# → writes ./deployment.preprod.json (gitignored)
+```
+
+**[CORE FACT REQUIRED]** Preprod `MOAT_CONTRACT_ADDRESS` / `VITE_MOAT_CONTRACT_ADDRESS`: fill after a successful `deploy:preprod` run.
 
 ## Not done yet
 
-1. Optional Preprod deploy + Atharv wallet handoff (browser providers)
-2. Full Compact circuit simulator / proof-path integration tests
+1. Run `deploy:preprod` → record Preprod address for Atharv
+2. Atharv wires frontend to `VITE_MOAT_CONTRACT_ADDRESS` + wallet providers
+3. Full Compact circuit simulator / proof-path integration tests
 
 ## Blockers / limitations
 
-- `RealMoatClient` for browser still needs Atharv’s funded `WalletProvider & MidnightProvider`.
+- Browser `RealMoatClient` needs Atharv’s funded Lace/1AM `WalletProvider & MidnightProvider`.
 - In-memory private state is **not encrypted** — session-only for the hackathon.
-- `registerAgentSecret` is mandatory before `createCapability` so circuit `hashAgentKey(agentSecret)` opens the policy hash.
+- `registerAgentSecret` is mandatory before `createCapability`.
 - Genesis seed is **local-dev only** — never reuse on Preprod/mainnet.
-- Local `MOAT_CONTRACT_ADDRESS` is only valid while this undeployed node/volume persists.
+- Local undeployed address is **not** the internet handoff.
 
 ## Handoff notes for Atharv
 
-- Demo: keep using `MockMoatClient` (`MIDNIGHT_NETWORK=demo`).
-- Real local: `npm run local:up` → set `MOAT_CONTRACT_ADDRESS` from `deployment.json` / CORE_STATUS → inject wallet providers → `joinMoatContract` / `createConfiguredMoatClient`.
-- Env: see `.env.example` (`PROOF_SERVER_URL`, indexer/node URLs, optional `MOAT_ZK_ASSETS_PATH`, `MOAT_CONTRACT_ADDRESS`).
-- Packages pinned for runtime **0.16.0**: `@midnight-ntwrk/compact-js@2.5.1`, `@midnight-ntwrk/midnight-js-*@4.1.1`.
+- Demo: `MockMoatClient` (`MIDNIGHT_NETWORK=demo`).
+- Real Preprod: set `VITE_MOAT_CONTRACT_ADDRESS` from Preprod deploy → connect Lace/1AM on Preprod → `joinMoatContract` / `createConfiguredMoatClient` with injected wallet providers.
+- Env: `.env.example` (`PROOF_SERVER_URL`, Preprod indexer/node, `MIDNIGHT_PREPROD_SEED` local-only).
+- Packages: `@midnight-ntwrk/compact-js@2.5.1`, `@midnight-ntwrk/midnight-js-*@4.1.1`.

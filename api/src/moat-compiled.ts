@@ -24,13 +24,22 @@ export function defaultMoatZkAssetsPath(): string {
 }
 
 /**
- * Bind the generated Compact contract + witnesses + ZK asset directory for Midnight.js.
+ * Bind the generated Compact contract + witnesses + ZK asset directory for Midnight.js (Node).
  */
 export function makeMoatCompiledContract(zkAssetsPath: string = defaultMoatZkAssetsPath()) {
   return CompiledContract.make('moat', Moat.Contract).pipe(
-    // Managed witness bag matches Compact Witnesses<MoatPrivateState>.
     CompiledContract.withWitnesses(witnesses as never),
     CompiledContract.withCompiledFileAssets(zkAssetsPath),
+  );
+}
+
+/**
+ * Browser-safe compiled contract (witnesses only).
+ * Pair with `FetchZkConfigProvider` pointed at `/zk/moat` (see `npm run sync:zk-assets`).
+ */
+export function makeMoatCompiledContractBrowser() {
+  return CompiledContract.make('moat', Moat.Contract).pipe(
+    CompiledContract.withWitnesses(witnesses as never),
   );
 }
 
