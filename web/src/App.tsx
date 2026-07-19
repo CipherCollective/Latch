@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { ArrowDown, CircleCheck, EyeOff, LockKeyhole, Network } from 'lucide-react';
 import { BrandMark } from './components/layout/BrandMark';
 import { ModeChooser } from './components/layout/ModeChooser';
@@ -10,6 +10,7 @@ import type { ActivityEvent, DemoRequestKind } from './features/authorization/Ag
 import { ObserverWorkspace } from './features/observer/ObserverWorkspace';
 import { ViewModeToggle } from './features/observer/ViewModeToggle';
 import { WalletConnectionPanel } from './features/wallet/WalletConnectionPanel';
+import { DeveloperMoatDeployRoute } from './features/developer/DeveloperMoatDeployRoute';
 import { buildObserverWorkspaceModel } from './privacy/observer-serializer';
 import { useMoatClient } from './services/moat-provider';
 import { MidnightWalletConnector, type ConnectedWalletSession } from './wallet/midnight-wallet-connector';
@@ -33,11 +34,6 @@ const PROOF_STATUS_RANK: Record<ProofStep['status'], number> = {
   passed: 2,
   failed: 2,
 };
-
-const MoatPreprodDeployPanel = lazy(async () => {
-  const module = await import('./features/developer/MoatPreprodDeployPanel');
-  return { default: module.MoatPreprodDeployPanel };
-});
 
 function App() {
   const client = useMoatClient();
@@ -383,50 +379,6 @@ function App() {
         <a href={`${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.txt`}>Third-party notices</a>
       </footer>
     </div>
-  );
-}
-
-function DeveloperMoatDeployRoute({
-  connector,
-  session,
-  onConnected,
-  onDisconnected,
-}: {
-  connector: MidnightWalletConnector;
-  session: ConnectedWalletSession | null;
-  onConnected: (session: ConnectedWalletSession) => void;
-  onDisconnected: () => void;
-}) {
-  if (!session) {
-    return (
-      <WalletConnectionPanel
-        connector={connector}
-        onConnected={onConnected}
-        onDisconnected={onDisconnected}
-        onUseDemo={() => window.location.assign(import.meta.env.BASE_URL)}
-        onBack={() => window.location.assign(import.meta.env.BASE_URL)}
-      />
-    );
-  }
-
-  let connectedApi = null;
-  try {
-    connectedApi = connector.getConnectedApi(session);
-  } catch {
-    return (
-      <WalletConnectionPanel
-        connector={connector}
-        onConnected={onConnected}
-        onDisconnected={onDisconnected}
-        onUseDemo={() => window.location.assign(import.meta.env.BASE_URL)}
-        onBack={() => window.location.assign(import.meta.env.BASE_URL)}
-      />
-    );
-  }
-  return (
-    <Suspense fallback={<p role="status">Loading temporary deployment tooling…</p>}>
-      <MoatPreprodDeployPanel session={session} connectedApi={connectedApi} />
-    </Suspense>
   );
 }
 
