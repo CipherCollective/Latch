@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "contract",
-    "api"
+    "api",
+    "web"
   ],
   "scripts": {
     "compact": "npm run compact --workspace @latch/contract",
@@ -16,10 +17,18 @@
     "build:api": "npm run prepare:contract && npm run build --workspace @latch/api",
     "typecheck:api": "npm run prepare:contract && npm run typecheck --workspace @latch/api",
     "test:api": "npm run prepare:contract && npm run test --workspace @latch/api",
-    "typecheck": "npm run typecheck:contract && npm run typecheck:api",
-    "test": "npm run test:contract && npm run test:api"
+    "typecheck:all": "npm run typecheck:contract && npm run typecheck:api && npm run typecheck --workspace @latch/web",
+    "test:all": "npm run test:contract && npm run test:api && npm run test:run --workspace @latch/web",
+    "dev": "npm run dev --workspace @latch/web",
+    "build": "npm run build --workspace @latch/web",
+    "build:pages": "npm run build:pages --workspace @latch/web",
+    "lint": "npm run lint --workspace @latch/web",
+    "typecheck": "npm run typecheck --workspace @latch/web",
+    "test": "npm run test --workspace @latch/web",
+    "test:run": "npm run test:run --workspace @latch/web",
+    "preview": "npm run preview --workspace @latch/web"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0 <23"
   }
 }

@@ -8,6 +8,9 @@ contract/src/managed/
 contract/dist/
 **/dist/
 **/coverage/
+playwright-report/
+test-results/
+*.local
 *.tsbuildinfo
 
 # Local tooling / skills (installed per machine)
